@@ -32,8 +32,23 @@ fn main() {
     mainloop(&contents);
 }
 
+struct NCurses;
+
+impl NCurses {
+    pub fn new() -> NCurses {
+        initscr();
+        NCurses
+    }
+}
+
+impl Drop for NCurses {
+    fn drop(&mut self) {
+        endwin();
+    }
+}
+
 fn mainloop(contents : &Vec<u8>) {
-    initscr();
+    let nc = NCurses::new();
     keypad(stdscr, true);
     // timeout(-1);
     noecho();
@@ -88,6 +103,4 @@ fn mainloop(contents : &Vec<u8>) {
             refresh();
         }
     }
-
-    endwin();
 }
