@@ -87,7 +87,7 @@ impl<'grid> HexGrid<'grid> {
     }
 
     pub fn keypressed(&mut self, key : i32) -> bool {
-        if key == nc::KEY_UP {
+        if key == nc::KEY_UP || key == b'k' as i32 {
             if self.cursor_y > self.scroll + 2 && self.cursor_y > 0 {
                 self.cursor_y -= 1;
             } else {
@@ -102,7 +102,7 @@ impl<'grid> HexGrid<'grid> {
             nc::mv( self.cursor_y, self.cursor_x );
             true
 
-        } else if key == nc::KEY_DOWN {
+        } else if key == nc::KEY_DOWN || key == b'j' as i32 {
             // TODO: This assumes there's at least one line
             let max_y = self.total_lines_needed() - 1;
 
@@ -126,7 +126,7 @@ impl<'grid> HexGrid<'grid> {
             nc::mv( self.cursor_y, self.cursor_x );
             true
 
-        } else if key == nc::KEY_LEFT {
+        } else if key == nc::KEY_LEFT || key == b'h' as i32 {
             if self.cursor_x > 0 {
                 self.cursor_x -= 1;
                 if (self.cursor_x + 1) % 3 == 0 {
@@ -136,7 +136,7 @@ impl<'grid> HexGrid<'grid> {
             nc::mv( self.cursor_y, self.cursor_x );
             true
 
-        } else if key == nc::KEY_RIGHT {
+        } else if key == nc::KEY_RIGHT || key == b'l' as i32 {
             let next_on_blank =
                 // add 1 to move to next column
                 // add 1 to make the index 1-based

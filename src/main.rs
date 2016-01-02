@@ -68,13 +68,13 @@ fn mainloop(contents : &Vec<u8>) {
         if ch == 27 {
             break;
 
-        } else if ch == 101 { // e
+        } else if ch == b'e' as i32 { // e
             grid.widen();
             clear();
             grid.draw();
             refresh();
 
-        } else if ch == 113 { // q
+        } else if ch == b'q' as i32 { // q
             grid.narrow();
             clear();
             grid.draw();
