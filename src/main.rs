@@ -59,6 +59,8 @@ fn mainloop(contents : &Vec<u8>) {
         };
 
     let mut grid = HexGrid::new( scr_x - 5, scr_y - 5, 2, 2, contents );
+    grid.draw();
+    refresh();
 
     loop {
         let ch = getch();
