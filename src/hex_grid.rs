@@ -32,18 +32,22 @@ impl<'grid> HexGrid<'grid> {
         }
     }
 
-    pub fn keypressed(&mut self, key : i32) {
+    pub fn keypressed(&mut self, key : i32) -> bool {
         // TODO: Scroll
 
         if key == nc::KEY_UP {
             if self.cursor_y > 0 {
                 self.cursor_y -= 1;
             }
+            nc::mv( self.cursor_y, self.cursor_x );
+            true
 
         } else if key == nc::KEY_DOWN {
             if self.cursor_y < self.height {
                 self.cursor_y += 1;
             }
+            nc::mv( self.cursor_y, self.cursor_x );
+            true
 
         } else if key == nc::KEY_LEFT {
             if self.cursor_x > 0 {
@@ -52,6 +56,8 @@ impl<'grid> HexGrid<'grid> {
                     self.cursor_x -= 1;
                 }
             }
+            nc::mv( self.cursor_y, self.cursor_x );
+            true
 
         } else if key == nc::KEY_RIGHT {
             let on_blank =
@@ -66,9 +72,12 @@ impl<'grid> HexGrid<'grid> {
                     self.cursor_x += 1;
                 }
             }
-        }
+            nc::mv( self.cursor_y, self.cursor_x );
+            true
 
-        nc::mv( self.cursor_y, self.cursor_x );
+        } else {
+            false
+        }
     }
 
     pub fn draw(&self) {
