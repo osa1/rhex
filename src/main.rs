@@ -3,7 +3,9 @@ extern crate ncurses;
 
 mod hex_grid;
 mod ascii_view;
+mod info_line;
 
+use std::borrow::Borrow;
 use std::env::args_os;
 use std::ffi::OsString;
 use std::fs::File;
@@ -14,6 +16,7 @@ use ncurses as nc;
 
 use hex_grid::HexGrid;
 use ascii_view::AsciiView;
+use info_line::InfoLine;
 
 fn main() {
     let args : Vec<OsString> = args_os().collect();
@@ -31,7 +34,7 @@ fn main() {
         }
     };
 
-    mainloop(&contents);
+    mainloop(path.to_str().unwrap(), &contents);
 }
 
 struct NCurses;
@@ -49,7 +52,7 @@ impl Drop for NCurses {
     }
 }
 
-fn mainloop(contents : &Vec<u8>) {
+fn mainloop(path: &str, contents : &Vec<u8>) {
     let _nc = NCurses::new();
     nc::keypad(nc::stdscr, true);
     nc::noecho();
@@ -57,6 +60,7 @@ fn mainloop(contents : &Vec<u8>) {
 
     nc::start_color();
     nc::init_pair(1, nc::COLOR_WHITE, nc::COLOR_GREEN);
+    nc::init_pair(2, nc::COLOR_WHITE, nc::COLOR_RED);
 
     let mut scr_x = 0;
     let mut scr_y = 0;
@@ -68,13 +72,17 @@ fn mainloop(contents : &Vec<u8>) {
 
     let unit_column = scr_x / 4;
 
-    let mut grid = HexGrid::new( unit_column * 3, scr_y, 0, 0, contents );
+    let mut grid = HexGrid::new( unit_column * 3, scr_y - 1, 0, 0, contents );
     grid.draw();
 
-    let mut ascii_view = AsciiView::new( unit_column, scr_y,
+    let mut ascii_view = AsciiView::new( unit_column, scr_y - 1,
                                          unit_column * 3 + 1, 0,
                                          contents );
     ascii_view.draw();
+
+    let mut info_line = InfoLine::new(unit_column * 4, 0, scr_y - 1,
+                                      format!("{} - 0: 0", path).into_bytes().borrow());
+    info_line.draw();
 
     nc::refresh();
 
@@ -89,6 +97,7 @@ fn mainloop(contents : &Vec<u8>) {
             nc::clear();
             grid.draw();
             ascii_view.draw();
+            info_line.draw();
             nc::refresh();
 
         } else if ch == b'q' as i32 {
@@ -96,6 +105,7 @@ fn mainloop(contents : &Vec<u8>) {
             nc::clear();
             grid.draw();
             ascii_view.draw();
+            info_line.draw();
             nc::refresh();
 
         } else {
@@ -104,6 +114,11 @@ fn mainloop(contents : &Vec<u8>) {
                 nc::clear();
                 grid.draw();
                 ascii_view.draw();
+
+                info_line.set_text( format!("{} - {}: {}", path, grid.get_row(), grid.get_column())
+                                    .into_bytes()
+                                    .borrow() );
+                info_line.draw();
                 nc::refresh();
             }
         }

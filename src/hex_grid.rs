@@ -88,6 +88,14 @@ impl<'grid> HexGrid<'grid> {
         self.cursor_y * self.bytes_per_line() + self.cursor_x / 3
     }
 
+    pub fn get_column(&self) -> i32 {
+        self.cursor_x
+    }
+
+    pub fn get_row(&self) -> i32 {
+        self.cursor_y
+    }
+
     pub fn keypressed(&mut self, key : i32) -> bool {
         if key == nc::KEY_UP || key == b'k' as i32 {
             if self.cursor_y > self.scroll + 2 && self.cursor_y > 0 {
