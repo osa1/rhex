@@ -37,6 +37,7 @@ fn mainloop(contents : &Vec<u8>) {
     keypad(stdscr, true);
     // timeout(-1);
     noecho();
+    curs_set( CURSOR_VISIBILITY::CURSOR_INVISIBLE );
 
     start_color();
     init_pair(1, COLOR_RED, COLOR_BLACK);
