@@ -1,19 +1,17 @@
-use std::borrow::Borrow;
-use std::cmp;
-
 use ncurses as nc;
 
+// FIXME: Fields are public to be able to read in AsciiView
 pub struct HexGrid<'grid> {
-    pos_x: i32,
-    pos_y: i32,
-    width: i32,
-    height: i32,
+    pub pos_x: i32,
+    pub pos_y: i32,
+    pub width: i32,
+    pub height: i32,
 
-    data: &'grid Vec<u8>,
+    pub data: &'grid Vec<u8>,
 
-    cursor_x: i32,
-    cursor_y: i32,
-    scroll: i32,
+    pub cursor_x: i32,
+    pub cursor_y: i32,
+    pub scroll: i32,
 }
 
 impl<'grid> HexGrid<'grid> {
@@ -84,6 +82,10 @@ impl<'grid> HexGrid<'grid> {
             }
         }
         self.cursor_y += 1;
+    }
+
+    pub fn get_byte_idx(&self) -> i32 {
+        self.cursor_y * self.bytes_per_line() + self.cursor_x / 3
     }
 
     pub fn keypressed(&mut self, key : i32) -> bool {

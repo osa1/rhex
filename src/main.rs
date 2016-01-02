@@ -2,6 +2,7 @@ extern crate libc;
 extern crate ncurses;
 
 mod hex_grid;
+mod ascii_view;
 
 use std::env::args_os;
 use std::ffi::OsString;
@@ -12,6 +13,7 @@ use std::path::Path;
 use ncurses::*;
 
 use hex_grid::HexGrid;
+use ascii_view::AsciiView;
 
 fn main() {
     let args : Vec<OsString> = args_os().collect();
@@ -48,33 +50,34 @@ impl Drop for NCurses {
 }
 
 fn mainloop(contents : &Vec<u8>) {
-    let nc = NCurses::new();
+    let _nc = NCurses::new();
     keypad(stdscr, true);
     // timeout(-1);
     noecho();
     curs_set( CURSOR_VISIBILITY::CURSOR_INVISIBLE );
 
     start_color();
-    init_pair(1, COLOR_RED, COLOR_BLACK);
+    // init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(1, COLOR_WHITE, COLOR_GREEN);
 
     let mut scr_x = 0;
     let mut scr_y = 0;
     getmaxyx(stdscr, &mut scr_y, &mut scr_x);
 
-    let scr_x =
-        if scr_x % 3 == 1 {
-            // We can't fit one more column, just act like we have just enough
-            // space
-            scr_x - 1
-        } else {
-            // mod == 0: We barely fit columns
-            // mod == 2: Draw functions are smart enough to not draw space after
-            //           last column, so it's OK
-            scr_x
-        };
+    // Layout: We leave 2 spaces between hex view and ascii view. Every byte
+    // takes 3 characters in hex view and 1 character in ascii view. So we have
+    // this 3/1 ratio.
 
-    let mut grid = HexGrid::new( scr_x - 5, scr_y - 5, 2, 2, contents );
+    let unit_column = scr_x / 4;
+
+    let mut grid = HexGrid::new( unit_column * 3, scr_y, 0, 0, contents );
     grid.draw();
+
+    let mut ascii_view = AsciiView::new( unit_column, scr_y,
+                                         unit_column * 3 + 1, 0,
+                                         contents );
+    ascii_view.draw();
+
     refresh();
 
     loop {
@@ -87,20 +90,24 @@ fn mainloop(contents : &Vec<u8>) {
             grid.widen();
             clear();
             grid.draw();
+            ascii_view.draw();
             refresh();
 
         } else if ch == b'q' as i32 { // q
             grid.narrow();
             clear();
             grid.draw();
+            ascii_view.draw();
             refresh();
 
         } else {
-            grid.keypressed(ch);
-            // We need to clear here, otherwise scrolling leaves artifacts
-            clear();
-            grid.draw();
-            refresh();
+            if grid.keypressed(ch) {
+                ascii_view.move_cursor(grid.get_byte_idx());
+                clear();
+                grid.draw();
+                ascii_view.draw();
+                refresh();
+            }
         }
     }
 }
