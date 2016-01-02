@@ -82,6 +82,8 @@ fn mainloop(contents : &Vec<u8>) {
 
         } else {
             grid.keypressed(ch);
+            // We need to clear here, otherwise scrolling leaves artifacts
+            clear();
             grid.draw();
             refresh();
         }
