@@ -2,20 +2,19 @@ use colors::Color;
 
 use ncurses as nc;
 
-// FIXME: Fields are public to be able to read in AsciiView
 pub struct HexGrid<'grid> {
-    pub pos_x: i32,
-    pub pos_y: i32,
-    pub width: i32,
-    pub height: i32,
+    pos_x: i32,
+    pos_y: i32,
+    width: i32,
+    height: i32,
 
-    pub data: &'grid Vec<u8>,
+    data: &'grid Vec<u8>,
 
-    pub cursor_x: i32,
-    pub cursor_y: i32,
-    pub scroll: i32,
+    cursor_x: i32,
+    cursor_y: i32,
+    scroll: i32,
 
-    pub has_focus: bool,
+    has_focus: bool,
 }
 
 impl<'grid> HexGrid<'grid> {
