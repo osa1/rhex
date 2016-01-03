@@ -47,7 +47,9 @@ impl<'gui> Gui<'gui> {
                                                contents,
                                                self as *mut Gui ));
 
-        self.info_line = Some(InfoLine::new( unit_column * 4, 0, scr_y - 1, &[], self as *mut Gui ));
+        self.info_line = Some(InfoLine::new( unit_column * 4, 0, scr_y - 1,
+                                             format!("{} - 0: 0", path).as_bytes(),
+                                             self as *mut Gui ));
 
         self.draw();
     }
