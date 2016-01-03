@@ -38,12 +38,10 @@ impl<'view> AsciiView<'view> {
         let rows = self.height;
         let cols = self.width;
 
+        'outer:
         for row in self.scroll .. self.scroll + rows {
             for col in 0 .. cols {
-                if row * cols + col < self.data.len() as i32 {
-                    // Go unsafe, already checked the boundary
-                    let byte = unsafe { *self.data.get_unchecked( (row * cols + col) as usize ) };
-
+                if let Some(&byte) = self.data.get((row * cols + col) as usize) {
                     let ch =
                         if byte >= 32 && byte <= 126 {
                             byte
@@ -67,6 +65,8 @@ impl<'view> AsciiView<'view> {
                     if attr {
                         nc::attroff( nc::A_BOLD() | color_attr );
                     }
+                } else {
+                    break 'outer;
                 }
             }
         }

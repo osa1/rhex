@@ -197,10 +197,7 @@ impl<'grid> HexGrid<'grid> {
         'outer:
         for row in self.scroll .. self.scroll + rows {
             for col in 0 .. cols {
-                if ((row * cols + col) as usize) < self.data.len() {
-                    // We just did the bounds check, go unsafe
-                    let byte = unsafe { self.data.get_unchecked( (row * cols + col) as usize ) };
-
+                if let Some(&byte) = self.data.get((row * cols + col) as usize) {
                     let char1 : u8 = hex_char(byte >> 4);
                     let char2 : u8 = hex_char(byte & 0b00001111);
 
