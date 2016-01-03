@@ -254,10 +254,10 @@ impl<'grid> HexGrid<'grid> {
 }
 
 #[inline]
-fn hex_char(byte : u8) -> u8 {
-    if byte < 10 {
-        48 + byte
+fn hex_char(nibble : u8) -> u8 {
+    if nibble < 10 {
+        48 + nibble
     } else {
-        97 + byte - 10
+        97 + nibble - 10
     }
 }
