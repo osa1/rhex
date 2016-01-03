@@ -1,6 +1,7 @@
 use std::cmp;
 
 use colors::Color;
+use gui::Gui;
 
 use ncurses as nc;
 
@@ -20,7 +21,8 @@ pub struct AsciiView<'view> {
 }
 
 impl<'view> AsciiView<'view> {
-    pub fn new(width : i32, height : i32, pos_x : i32, pos_y : i32, data: &Vec<u8>) -> AsciiView {
+    pub fn new(width : i32, height : i32, pos_x : i32, pos_y : i32, data: &'view Vec<u8>,
+               gui : *mut Gui) -> AsciiView<'view> {
         AsciiView {
             width: width,
             height: height,

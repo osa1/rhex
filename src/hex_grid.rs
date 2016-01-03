@@ -1,4 +1,8 @@
+use std::borrow::Borrow;
+
 use colors::Color;
+use gui::Gui;
+use utils::*;
 
 use ncurses as nc;
 
@@ -9,22 +13,28 @@ pub struct HexGrid<'grid> {
     height: i32,
 
     data: &'grid Vec<u8>,
+    path: &'grid str,
 
     cursor_x: i32,
     cursor_y: i32,
     scroll: i32,
 
     has_focus: bool,
+
+    gui: *mut Gui<'grid>,
 }
 
 impl<'grid> HexGrid<'grid> {
-    pub fn new(width : i32, height : i32, pos_x : i32, pos_y : i32, data: &Vec<u8>) -> HexGrid {
+    pub fn new(width : i32, height : i32, pos_x : i32, pos_y : i32, data: &'grid Vec<u8>,
+               path: &'grid str,
+               gui : *mut Gui<'grid>) -> HexGrid<'grid> {
         HexGrid {
             pos_x: pos_x,
             pos_y: pos_y,
             height: height,
             width: width,
             data: data,
+            path: path,
 
             // Cursor positions are relative to the grid.
             // (i.e. they stay the same when grid is moved)
@@ -33,6 +43,8 @@ impl<'grid> HexGrid<'grid> {
             scroll: 0,
 
             has_focus: false,
+
+            gui: gui,
         }
     }
 
@@ -118,7 +130,6 @@ impl<'grid> HexGrid<'grid> {
                 }
             }
 
-            nc::mv( self.cursor_y, self.cursor_x );
             true
 
         } else if key == nc::KEY_DOWN || key == b'j' as i32 {
@@ -142,7 +153,7 @@ impl<'grid> HexGrid<'grid> {
                 }
             }
 
-            nc::mv( self.cursor_y, self.cursor_x );
+            self.update_ascii_view();
             true
 
         } else if key == nc::KEY_LEFT || key == b'h' as i32 {
@@ -152,7 +163,8 @@ impl<'grid> HexGrid<'grid> {
                     self.cursor_x -= 1;
                 }
             }
-            nc::mv( self.cursor_y, self.cursor_x );
+
+            self.update_ascii_view();
             true
 
         } else if key == nc::KEY_RIGHT || key == b'l' as i32 {
@@ -182,12 +194,29 @@ impl<'grid> HexGrid<'grid> {
                 self.cursor_x = potential_next_col;
             }
 
-            nc::mv( self.cursor_y, self.cursor_x );
+            self.update_ascii_view();
             true
 
         } else {
             false
         }
+    }
+
+    fn update_ascii_view(&self) {
+        let gui : &mut Gui = unsafe { &mut *self.gui }; // wtf
+
+        opt_mut(gui.get_ascii_view(),
+                |w| w.move_cursor(self.get_byte_idx()));
+
+        // Uhhhhh.. why do I need to repeat this? Without this I'm getting:
+        //   error: cannot borrow `*gui` as mutable more than once at a time [E0499]
+        let gui : &mut Gui = unsafe { &mut *self.gui }; // wtf
+
+        opt_mut(gui.get_info_line(),
+                |l| l.set_text(format!("{} - {}: {}",
+                                       self.path,
+                                       self.get_row(),
+                                       self.get_column()).into_bytes().borrow()));
     }
 
     pub fn draw(&self) {
