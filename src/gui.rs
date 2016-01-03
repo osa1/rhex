@@ -56,7 +56,7 @@ impl<'gui> Gui<'gui> {
         &mut self.hex_grid
     }
 
-    pub fn get_ascii_view(&mut self) -> &'gui mut Option<AsciiView> {
+    pub fn get_ascii_view(&mut self) -> &mut Option<AsciiView<'gui>> {
         &mut self.ascii_view
     }
 

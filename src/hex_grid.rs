@@ -203,14 +203,10 @@ impl<'grid> HexGrid<'grid> {
     }
 
     fn update_ascii_view(&self) {
-        let gui : &mut Gui = unsafe { &mut *self.gui }; // wtf
+        let gui : &mut Gui = unsafe { &mut *self.gui };
 
         opt_mut(gui.get_ascii_view(),
                 |w| w.move_cursor(self.get_byte_idx()));
-
-        // Uhhhhh.. why do I need to repeat this? Without this I'm getting:
-        //   error: cannot borrow `*gui` as mutable more than once at a time [E0499]
-        let gui : &mut Gui = unsafe { &mut *self.gui }; // wtf
 
         opt_mut(gui.get_info_line(),
                 |l| l.set_text(format!("{} - {}: {}",
