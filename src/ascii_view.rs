@@ -1,5 +1,7 @@
 use std::cmp;
 
+use colors::Color;
+
 use ncurses as nc;
 
 // Guess what.. I think AsciiView is mostly HexGrid, with some overrided
@@ -34,9 +36,12 @@ impl<'view> AsciiView<'view> {
                         };
 
                     let attr = self_.cursor_x == col && self_.cursor_y == row;
+                    let color_attr =
+                        if self_.has_focus { Color::CursorFocus.attr() }
+                        else { Color::CursorNoFocus.attr() };
 
                     if attr {
-                        nc::attron( nc::A_BOLD() | nc::COLOR_PAIR(1) );
+                        nc::attron( nc::A_BOLD() | color_attr );
                     }
 
                     nc::mvaddch( self_.pos_y + row - self_.scroll,
@@ -44,7 +49,7 @@ impl<'view> AsciiView<'view> {
                                  ch as u64 );
 
                     if attr {
-                        nc::attroff( nc::A_BOLD() | nc::COLOR_PAIR(1) );
+                        nc::attroff( nc::A_BOLD() | color_attr );
                     }
                 }
             }

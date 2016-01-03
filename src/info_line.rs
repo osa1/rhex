@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 
+use colors::Color;
+
 use ncurses as nc;
 
 pub struct InfoLine {
@@ -28,7 +30,7 @@ impl InfoLine {
     pub fn draw(&self) {
         let slice : &[u8] = self.text.borrow();
 
-        nc::attron( nc::COLOR_PAIR(2) );
+        nc::attron( Color::StatusBar.attr() );
 
         unsafe {
             nc::ll::mvaddnstr( self.pos_y, self.pos_x,
@@ -40,6 +42,6 @@ impl InfoLine {
             unsafe { nc::ll::mvaddch( self.pos_y, x, b' ' as u64 ); }
         }
 
-        nc::attroff( nc::COLOR_PAIR(2) );
+        nc::attroff( Color::StatusBar.attr() );
     }
 }

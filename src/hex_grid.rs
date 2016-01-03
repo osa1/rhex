@@ -1,3 +1,5 @@
+use colors::Color;
+
 use ncurses as nc;
 
 // FIXME: Fields are public to be able to read in AsciiView
@@ -12,6 +14,8 @@ pub struct HexGrid<'grid> {
     pub cursor_x: i32,
     pub cursor_y: i32,
     pub scroll: i32,
+
+    pub has_focus: bool,
 }
 
 impl<'grid> HexGrid<'grid> {
@@ -27,7 +31,9 @@ impl<'grid> HexGrid<'grid> {
             // (i.e. they stay the same when grid is moved)
             cursor_x: 0,
             cursor_y: 0,
-            scroll: 0
+            scroll: 0,
+
+            has_focus: false,
         }
     }
 
@@ -82,6 +88,10 @@ impl<'grid> HexGrid<'grid> {
             }
         }
         self.cursor_y += 1;
+    }
+
+    pub fn focus(&mut self, focus : bool) {
+        self.has_focus = focus;
     }
 
     pub fn get_byte_idx(&self) -> i32 {
@@ -197,28 +207,31 @@ impl<'grid> HexGrid<'grid> {
 
                     let attr_1 = col * 3     == self.cursor_x && row == self.cursor_y;
                     let attr_2 = col * 3 + 1 == self.cursor_x && row == self.cursor_y;
+                    let color_attr =
+                        if self.has_focus { Color::CursorFocus.attr() }
+                        else { Color::CursorNoFocus.attr() };
 
                     if attr_1 {
-                        nc::attron( nc::A_BOLD() | nc::COLOR_PAIR(1) );
+                        nc::attron( nc::A_BOLD() | color_attr );
                     }
 
                     nc::mvaddch( self.pos_y + row - self.scroll,
                                  self.pos_x + col * 3,     char1 as u64 );
 
                     if attr_1 {
-                        nc::attroff( nc::A_BOLD() | nc::COLOR_PAIR(1) );
+                        nc::attroff( nc::A_BOLD() | color_attr );
                     }
 
 
                     if attr_2 {
-                        nc::attron( nc::A_BOLD() | nc::COLOR_PAIR(1) );
+                        nc::attron( nc::A_BOLD() | color_attr );
                     }
 
                     nc::mvaddch( self.pos_y + row - self.scroll,
                                  self.pos_x + col * 3 + 1, char2 as u64 );
 
                     if attr_2 {
-                        nc::attroff( nc::A_BOLD() | nc::COLOR_PAIR(1) );
+                        nc::attroff( nc::A_BOLD() | color_attr );
                     }
 
                 } else {

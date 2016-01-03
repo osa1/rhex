@@ -4,6 +4,7 @@ extern crate ncurses;
 mod hex_grid;
 mod ascii_view;
 mod info_line;
+mod colors;
 
 use std::borrow::Borrow;
 use std::env::args_os;
@@ -58,9 +59,7 @@ fn mainloop(path: &str, contents : &Vec<u8>) {
     nc::noecho();
     nc::curs_set( nc::CURSOR_VISIBILITY::CURSOR_INVISIBLE );
 
-    nc::start_color();
-    nc::init_pair(1, nc::COLOR_WHITE, nc::COLOR_GREEN);
-    nc::init_pair(2, nc::COLOR_WHITE, nc::COLOR_RED);
+    colors::init_colors();
 
     let mut scr_x = 0;
     let mut scr_y = 0;
@@ -73,6 +72,7 @@ fn mainloop(path: &str, contents : &Vec<u8>) {
     let unit_column = scr_x / 4;
 
     let mut grid = HexGrid::new( unit_column * 3, scr_y - 1, 0, 0, contents );
+    grid.focus(true);
     grid.draw();
 
     let mut ascii_view = AsciiView::new( unit_column, scr_y - 1,
