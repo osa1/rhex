@@ -13,15 +13,7 @@ use std::path::Path;
 // Specification of ELF format
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug)]
-pub enum ParseResult {
-    ParseOK(ELFHeader),
-    NotELF,
-    CantReadFile(Error),
-    CantParse,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Class { Bit32, Bit64 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +79,9 @@ pub struct ELFHeader {
 }
 
 #[derive(Debug)]
+pub enum SectionHeader { SectionHeader32(SectionHeader32), SectionHeader64(SectionHeader64) }
+
+#[derive(Debug)]
 struct SectionHeader32 {
     /// Name of the section. Its value is an index into the section header
     /// string table section, giving the location of a null-terminated string.
@@ -125,7 +120,7 @@ struct SectionHeader32 {
 }
 
 /// See documentation of `SectionHeader64`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SectionHeader64 {
     name: u32,
     ty: SectionHeaderType,
@@ -139,7 +134,7 @@ struct SectionHeader64 {
     entsize: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum SectionHeaderType {
     /// This marks the section header as inactive. It does not have an
     /// associated section. Other members of the section header have undefined
@@ -192,9 +187,15 @@ enum SectionHeaderType {
     /// file can also contain a `SYMTAB` section.
     DYNSYM,
 
+    // FIXME: This is not in the man page, but header file has it.
+    NUM,
+
     /// This value up to and including `HIPROC` is reserved for
     /// processor-specific semantics.
     LOPROC,
+
+    /// A value between `LOPROC` and `HIPROC`.
+    PROC(u32),
 
     /// This value down to and including `LOPROC` is reserved for
     /// processor-specific semantics.
@@ -204,30 +205,44 @@ enum SectionHeaderType {
     /// for application programs.
     LOUSER,
 
+    /// A value between `LOUSER` and `HIUSER`.
+    USER(u32),
+
     /// This value specifies the upper bound of the range of indices reserved
     /// for application programs. Section types between `LOUSER` and `HIUSER`
     /// may be used by the application, without conflicting with current or
     /// future system-defined section types.
     HIUSER,
+
+    // (Found in the wild)
+    GNU_HASH, VERSYM, VERNEED, INIT_ARRAY, FINI_ARRAY,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Parsing
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn parse(path : &Path) -> ParseResult {
+#[derive(Debug)]
+pub enum ParseResult {
+    ParseOK(ELFHeader),
+    NotELF,
+    CantReadFile(Error),
+    CantParse,
+}
+
+pub fn parse_elf_header(path : &Path) -> ParseResult {
     let mut contents = Vec::new();
 
     match File::open(path) {
         Err(err) => ParseResult::CantReadFile(err),
         Ok(mut file) => {
             file.read_to_end(&mut contents);
-            parse_contents(contents.borrow())
+            parse_elf_header_(contents.borrow())
         }
     }
 }
 
-fn parse_contents(contents : &[u8]) -> ParseResult {
+pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
     let mag0 = contents[0];
     let mag1 = contents[1];
     let mag2 = contents[2];
@@ -416,6 +431,143 @@ fn parse_contents(contents : &[u8]) -> ParseResult {
         shnum: shnum,
         shstrndx: shstrndx,
     })
+}
+
+pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<SectionHeader> {
+    let num_section_headers = elf_header.shnum;
+    let section_header_size = elf_header.shentsize;
+    let headers_start_at    = elf_header.shoff;
+
+    let class               = elf_header.class.clone();
+    let endianness          = elf_header.endianness.clone();
+
+    let mut ret = Vec::new();
+
+    for i in 0 .. num_section_headers {
+        let start_offset = (headers_start_at + ((i * section_header_size) as u64)) as usize;
+        let header_bits  = &contents[ start_offset .. ];
+
+        let header = match class {
+            Class::Bit32 =>
+                SectionHeader::SectionHeader32(
+                    parse_section_header_32(endianness.clone(), header_bits)),
+            Class::Bit64 =>
+                SectionHeader::SectionHeader64(
+                    parse_section_header_64(endianness.clone(), header_bits))
+        };
+
+        // println!("[{}]: {:?}", i, header_ty(&header));
+
+        ret.push(header);
+    }
+
+    ret
+}
+
+fn header_ty(h : &SectionHeader) -> SectionHeaderType {
+    match *h {
+        SectionHeader::SectionHeader32(ref h) => h.ty.clone(),
+        SectionHeader::SectionHeader64(ref h) => h.ty.clone(),
+    }
+}
+
+fn parse_section_header_32(endianness : Endianness, contents : &[u8]) -> SectionHeader32 {
+    let name   = read_u32(endianness.clone(),  contents);
+    let ty     = read_u32(endianness.clone(), &contents[ 4 .. ]);
+    let flags  = read_u32(endianness.clone(), &contents[ 8 .. ]);
+    let addr   = read_u32(endianness.clone(), &contents[ 12 .. ]);
+    let offset = read_u32(endianness.clone(), &contents[ 16 .. ]);
+    let size   = read_u32(endianness.clone(), &contents[ 20 .. ]);
+    let link   = read_u32(endianness.clone(), &contents[ 24 .. ]);
+    let info   = read_u32(endianness.clone(), &contents[ 28 .. ]);
+    let addralign = read_u32(endianness.clone(), &contents[ 32 .. ]);
+    let entsize = read_u32(endianness.clone(), &contents[ 36 .. ]);
+
+    SectionHeader32 {
+        name: name,
+        ty: parse_section_header_ty(ty),
+        flags: flags,
+        addr: addr,
+        offset: offset,
+        size: size,
+        link: link,
+        info: info,
+        addralign: addralign,
+        entsize: entsize,
+    }
+}
+
+fn parse_section_header_64(endianness : Endianness, contents : &[u8]) -> SectionHeader64 {
+    let name   = read_u32(endianness.clone(),  contents);
+    let ty     = read_u32(endianness.clone(), &contents[ 4 .. ]);
+    let flags  = read_u64(endianness.clone(), &contents[ 8 .. ]);
+    let addr   = read_u64(endianness.clone(), &contents[ 12 .. ]);
+    let offset = read_u64(endianness.clone(), &contents[ 16 .. ]);
+    let size   = read_u64(endianness.clone(), &contents[ 20 .. ]);
+    let link   = read_u32(endianness.clone(), &contents[ 24 .. ]);
+    let info   = read_u32(endianness.clone(), &contents[ 28 .. ]);
+    let addralign = read_u64(endianness.clone(), &contents[ 32 .. ]);
+    let entsize = read_u64(endianness.clone(), &contents[ 36 .. ]);
+
+    SectionHeader64 {
+        name: name,
+        ty: parse_section_header_ty(ty),
+        flags: flags,
+        addr: addr,
+        offset: offset,
+        size: size,
+        link: link,
+        info: info,
+        addralign: addralign,
+        entsize: entsize,
+    }
+}
+
+// static SHT_NULL        : u32 =  0;
+// static SHT_PROGBITS    : u32 =  1;
+// static SHT_SYMTAB      : u32 =  2;
+// static SHT_STRTAB      : u32 =  3;
+// static SHT_RELA        : u32 =  4;
+// static SHT_HASH        : u32 =  5;
+// static SHT_DYNAMIC     : u32 =  6;
+// static SHT_NOTE        : u32 =  7;
+// static SHT_NOBITS      : u32 =  8;
+// static SHT_REL         : u32 =  9;
+// static SHT_SHLIB       : u32 =  10;
+// static SHT_DYNSYM      : u32 =  11;
+// static SHT_NUM         : u32 =  12;
+// static SHT_LOPROC      : u32 =  0x70000000;
+// static SHT_HIPROC      : u32 =  0x7fffffff;
+// static SHT_LOUSER      : u32 =  0x80000000;
+// static SHT_HIUSER      : u32 =  0xffffffff;
+
+fn parse_section_header_ty(ty : u32) -> SectionHeaderType {
+    match ty {
+         0 => SectionHeaderType::NULL,
+         1 => SectionHeaderType::PROGBITS,
+         2 => SectionHeaderType::SYMTAB,
+         3 => SectionHeaderType::STRTAB,
+         4 => SectionHeaderType::RELA,
+         5 => SectionHeaderType::HASH,
+         6 => SectionHeaderType::DYNAMIC,
+         7 => SectionHeaderType::NOTE,
+         8 => SectionHeaderType::NOBITS,
+         9 => SectionHeaderType::REL,
+        10 => SectionHeaderType::SHLIB,
+        11 => SectionHeaderType::DYNSYM,
+        12 => SectionHeaderType::NUM,
+        0x70000000 ... 0x7fffffff => SectionHeaderType::PROC(ty),
+        0x80000000 ... 0xffffffff => SectionHeaderType::USER(ty),
+
+        // Some types found in the wild
+        0x6ffffff6 => SectionHeaderType::GNU_HASH,
+        0x6fffffff => SectionHeaderType::VERSYM,
+        0x6ffffffe => SectionHeaderType::VERNEED,
+        0xe        => SectionHeaderType::INIT_ARRAY,
+        0xf        => SectionHeaderType::FINI_ARRAY,
+
+        _ => panic!("parse_section_header_type: Unexpected input: 0x{0:X}", ty),
+    }
 }
 
 fn read_u16(endianness : Endianness, from : &[u8]) -> u16 {
