@@ -38,104 +38,209 @@ pub struct ELFHeader {
 
     /// Virtual address to which the system first transfers control, thus
     /// starting the process. Zero if the file has no associated entry point.
-    entry_addr: u64,
+    pub entry_addr: u64,
 
     /// The program header table's file offset in bytes. Zero if the file has no
     /// program header table.
-    phoff: u64,
+    pub phoff: u64,
 
     /// The section header table's file offset in bytes. Zero if the file has no
     /// section header table.
-    shoff: u64,
+    pub shoff: u64,
 
     /// Processor-specific flags associated with the file.
-    flags: u32,
+    pub flags: u32,
 
     /// The ELF header's size in bytes.
     /// (Normally 64 bytes for 64-bit and 52 for 32-bit format)
-    ehsize: u16,
+    pub ehsize: u16,
 
     /// The size in bytes of one entry in the file's program header table; all
     /// entries are the same size.
-    phentsize: u16,
+    pub phentsize: u16,
 
     /// The number of entries in the program header table. Thus the product of
     /// `phentsize` and `phnum` gives the program header table's size in bytes.
     /// Zero if the file has no program header table.
-    phnum: u16,
+    pub phnum: u16,
 
     /// The size in bytes of one entry in the file's section header table; all
     /// entries are the same size.
-    shentsize: u16,
+    pub shentsize: u16,
 
     /// The number of entries in the section header table. Thus the product of
     /// `shentsize` and `shnum` gives the section header table's size in bytes.
     /// Zero if the file has no section header table.
-    shnum: u16,
+    pub shnum: u16,
 
     /// The section header table index of the entry associated with the section
     /// name string table. Zero if the file has no section name string table.
-    shstrndx: u16,
+    pub shstrndx: u16,
+}
+
+#[derive(Debug)]
+pub enum ProgramHeader { ProgramHeader32(ProgramHeader32), ProgramHeader64(ProgramHeader64) }
+
+#[derive(Debug)]
+pub struct ProgramHeader32 {
+    /// What kind of segment this array element describes or how to interpret
+    /// the array element's information.
+    pub ty: ProgramHeaderType,
+
+    /// Holds the offset from the beginning of the file at which the first byte
+    /// of the segment resides.
+    pub offset: u32,
+
+    /// Holds the virtual address at which the first byte of the segment resides
+    /// in memory.
+    pub vaddr: u32,
+
+    /// On systems for which physical addressing is relevant, this member is
+    /// reserved for the segment's physical address. Under BSD this member is
+    /// not used and must be zero.
+    pub paddr: u32,
+
+    /// Holds the number of bytes in the file image of the segment. It may be
+    /// zero.
+    pub filesz: u32,
+
+    /// Holds the number of bytes in the memory image of the segment. It may be
+    /// zero.
+    pub memsz: u32,
+
+    /// TODO
+    pub flags: u32,
+
+    /// TODO
+    pub align: u32,
+}
+
+/// See documentation of `ProgramHeader32`.
+#[derive(Debug)]
+pub struct ProgramHeader64 {
+    pub ty: ProgramHeaderType,
+    pub flags: u32,
+    pub offset: u64,
+    pub vaddr: u64,
+    pub paddr: u64,
+    pub filesz: u64,
+    pub memsz: u64,
+    pub align: u64,
+}
+
+#[derive(Debug, Clone)]
+pub enum ProgramHeaderType {
+    /// The array element is unused and the other members' values are undefined.
+    /// This lets the program header have ignored entries.
+    NULL,
+
+    /// The array element specifies a loadable segment, described by `filesz`
+    /// and `memsz`. The bytes from the file are mapped to the beginning of the
+    /// memory segment. If the segment's memory size `memsz` is larger than the
+    /// file size `filesz`, the "extra" bytes are defined to hold the value 0
+    /// and to follow the segment's initialized area. The file size may not be
+    /// larger than the memory size. Loadable segment entries in the program
+    /// header table appear in ascending order, sorted on the `vaddr` member.
+    LOAD,
+
+    /// The array element specifies dynamic linking information.
+    DYNAMIC,
+
+    /// The array element specifies the location and size of a null-terminated
+    /// pathname to invoke as an interpreter. This segment type is meaningful
+    /// only for executable files (though  it may occur for shared objects).
+    /// However it may not occur more than once in a file. If it is present, it
+    /// must precede any loadable segment entry.
+    INTERP,
+
+    /// The array element specifies the location and size for auxiliary
+    /// information.
+    NOTE,
+
+    /// This segment type is reserved but has unspecified semantics. Programs
+    /// that contain an array element of this type do not conform to the ABI.
+    SHLIB,
+
+    /// The array element, if present, specifies the location and size of the
+    /// program header table itself, both in the file and in the memory image of
+    /// the program. This segment type may not occur more than once in a file.
+    /// Moreover, it may occur only if the program header table is part of the
+    /// memory image of the program. If it is present, it must precede any
+    /// loadable segment entry.
+    PHDR,
+
+    /// TODO: Man page doesn't list this, but header files has it.
+    TLS,
+
+    /// Reserved for processor-specific semantics.
+    OS(u32),
+
+    /// Reserved for processor-specific semantics.
+    PROC(u32),
+
+    /// GNU extension which is used by the Linux kernel to control the state of
+    /// the stack via the flags set in the `flags` member.
+    GNU_EH_FRAME,
 }
 
 #[derive(Debug)]
 pub enum SectionHeader { SectionHeader32(SectionHeader32), SectionHeader64(SectionHeader64) }
 
 #[derive(Debug)]
-struct SectionHeader32 {
+pub struct SectionHeader32 {
     /// Name of the section. Its value is an index into the section header
     /// string table section, giving the location of a null-terminated string.
-    name: u32,
+    pub name: u32,
 
     /// Categorizes the section's contents and semantics.
-    ty: SectionHeaderType,
+    pub ty: SectionHeaderType,
 
-    flags: u32,
+    pub flags: u32,
 
     /// If the section will appear in the memory image of a process, this is the
     /// address at which the section's first byte should reside. Otherwise it's 0.
-    addr: u32,
+    pub addr: u32,
 
     /// The byte offset from the beginning of the file to the first byte in the
     /// section.
-    offset: u32,
+    pub offset: u32,
 
     /// The section's size in bytes.
-    size: u32,
+    pub size: u32,
 
     /// Section header table index link.
     // ???
-    link: u32,
+    pub link: u32,
 
     /// Extra information, whose interpretation depends on the section type.
-    info: u32,
+    pub info: u32,
 
     /// Alignment constraints.
-    addralign: u32,
+    pub addralign: u32,
 
     /// Some sections hold a table of fixed-size entries, such as a symbol
     /// table. For such a section, this gives the size in bytes of each entry.
     /// 0 if the section does not hold a table of fixed-size entries.
-    entsize: u32,
+    pub entsize: u32,
 }
 
 /// See documentation of `SectionHeader64`.
 #[derive(Debug, Clone)]
-struct SectionHeader64 {
-    name: u32,
-    ty: SectionHeaderType,
-    flags: u64,
-    addr: u64,
-    offset: u64,
-    size: u64,
-    link: u32,
-    info: u32,
-    addralign: u64,
-    entsize: u64,
+pub struct SectionHeader64 {
+    pub name: u32,
+    pub ty: SectionHeaderType,
+    pub flags: u64,
+    pub addr: u64,
+    pub offset: u64,
+    pub size: u64,
+    pub link: u32,
+    pub info: u32,
+    pub addralign: u64,
+    pub entsize: u64,
 }
 
 #[derive(Debug, Clone)]
-enum SectionHeaderType {
+pub enum SectionHeaderType {
     /// This marks the section header as inactive. It does not have an
     /// associated section. Other members of the section header have undefined
     /// values.
@@ -344,16 +449,6 @@ pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
             }
         };
 
-    let header_size =
-        match class {
-            Class::Bit32 => {
-                read_u32(endianness.clone(), &contents[ 0x24 .. ])
-            },
-            Class::Bit64 => {
-                read_u32(endianness.clone(), &contents[ 0x30 .. ])
-            }
-        };
-
     let ehsize =
         match class {
             Class::Bit32 => {
@@ -433,10 +528,100 @@ pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
     })
 }
 
+pub fn parse_program_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<ProgramHeader> {
+    let num_pgm_headers      = elf_header.phnum as usize;
+    let pgm_header_size      = elf_header.phentsize as usize;
+    let pgm_headers_start_at = elf_header.phoff as usize;
+
+    let class                = elf_header.class.clone();
+    let endianness           = elf_header.endianness.clone();
+
+    let mut ret = Vec::new();
+
+    for i in 0 .. num_pgm_headers {
+        let start_offset = pgm_headers_start_at + i * pgm_header_size;
+        let header_bits  = &contents[ start_offset .. ];
+
+        let header = match class {
+            Class::Bit32 =>
+                ProgramHeader::ProgramHeader32(
+                    parse_program_header_32(endianness.clone(), header_bits)),
+            Class::Bit64 =>
+                ProgramHeader::ProgramHeader64(
+                    parse_program_header_64(endianness.clone(), header_bits)),
+        };
+
+        ret.push(header);
+    }
+
+    ret
+}
+
+fn parse_program_header_32(endianness : Endianness, contents: &[u8]) -> ProgramHeader32 {
+    let ty     = read_u32(endianness.clone(),  contents);
+    let offset = read_u32(endianness.clone(), &contents[  4 .. ]);
+    let vaddr  = read_u32(endianness.clone(), &contents[  8 .. ]);
+    let paddr  = read_u32(endianness.clone(), &contents[ 12 .. ]);
+    let filesz = read_u32(endianness.clone(), &contents[ 16 .. ]);
+    let memsz  = read_u32(endianness.clone(), &contents[ 20 .. ]);
+    let flags  = read_u32(endianness.clone(), &contents[ 24 .. ]);
+    let align  = read_u32(endianness.clone(), &contents[ 30 .. ]);
+
+    ProgramHeader32 {
+        ty: parse_program_header_ty(ty),
+        offset: offset,
+        vaddr: vaddr,
+        paddr: paddr,
+        filesz: filesz,
+        memsz: memsz,
+        flags: flags,
+        align: align,
+    }
+}
+
+fn parse_program_header_64(endianness : Endianness, contents: &[u8]) -> ProgramHeader64 {
+    let ty     = read_u32(endianness.clone(),  contents);
+    let flags  = read_u32(endianness.clone(), &contents[  4 .. ]);
+    let offset = read_u64(endianness.clone(), &contents[  8 .. ]);
+    let vaddr  = read_u64(endianness.clone(), &contents[ 16 .. ]);
+    let paddr  = read_u64(endianness.clone(), &contents[ 24 .. ]);
+    let filesz = read_u64(endianness.clone(), &contents[ 32 .. ]);
+    let memsz  = read_u64(endianness.clone(), &contents[ 40 .. ]);
+    let align  = read_u64(endianness.clone(), &contents[ 48 .. ]);
+
+    ProgramHeader64 {
+        ty: parse_program_header_ty(ty),
+        flags: flags,
+        offset: offset,
+        vaddr: vaddr,
+        paddr: paddr,
+        filesz: filesz,
+        memsz: memsz,
+        align: align,
+    }
+}
+
+fn parse_program_header_ty(ty : u32) -> ProgramHeaderType {
+    match ty {
+        0 => ProgramHeaderType::NULL,
+        1 => ProgramHeaderType::LOAD,
+        2 => ProgramHeaderType::DYNAMIC,
+        3 => ProgramHeaderType::INTERP,
+        4 => ProgramHeaderType::NOTE,
+        5 => ProgramHeaderType::SHLIB,
+        6 => ProgramHeaderType::PHDR,
+        7 => ProgramHeaderType::TLS,
+        0x6474e550 => ProgramHeaderType::GNU_EH_FRAME,
+        0x60000000 ... 0x6fffffff => ProgramHeaderType::OS(ty),
+        0x70000000 ... 0x7fffffff => ProgramHeaderType::PROC(ty),
+        _ => panic!("parse_program_header_ty: Unknown program header type: 0x{0:X}", ty),
+    }
+}
+
 pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<SectionHeader> {
-    let num_section_headers = elf_header.shnum;
-    let section_header_size = elf_header.shentsize;
-    let headers_start_at    = elf_header.shoff;
+    let num_section_headers = elf_header.shnum as usize;
+    let section_header_size = elf_header.shentsize as usize;
+    let headers_start_at    = elf_header.shoff as usize;
 
     let class               = elf_header.class.clone();
     let endianness          = elf_header.endianness.clone();
@@ -444,7 +629,7 @@ pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Se
     let mut ret = Vec::new();
 
     for i in 0 .. num_section_headers {
-        let start_offset = (headers_start_at + ((i * section_header_size) as u64)) as usize;
+        let start_offset = headers_start_at + i * section_header_size;
         let header_bits  = &contents[ start_offset .. ];
 
         let header = match class {
@@ -455,8 +640,6 @@ pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Se
                 SectionHeader::SectionHeader64(
                     parse_section_header_64(endianness.clone(), header_bits))
         };
-
-        // println!("[{}]: {:?}", i, header_ty(&header));
 
         ret.push(header);
     }
@@ -523,24 +706,6 @@ fn parse_section_header_64(endianness : Endianness, contents : &[u8]) -> Section
     }
 }
 
-// static SHT_NULL        : u32 =  0;
-// static SHT_PROGBITS    : u32 =  1;
-// static SHT_SYMTAB      : u32 =  2;
-// static SHT_STRTAB      : u32 =  3;
-// static SHT_RELA        : u32 =  4;
-// static SHT_HASH        : u32 =  5;
-// static SHT_DYNAMIC     : u32 =  6;
-// static SHT_NOTE        : u32 =  7;
-// static SHT_NOBITS      : u32 =  8;
-// static SHT_REL         : u32 =  9;
-// static SHT_SHLIB       : u32 =  10;
-// static SHT_DYNSYM      : u32 =  11;
-// static SHT_NUM         : u32 =  12;
-// static SHT_LOPROC      : u32 =  0x70000000;
-// static SHT_HIPROC      : u32 =  0x7fffffff;
-// static SHT_LOUSER      : u32 =  0x80000000;
-// static SHT_HIUSER      : u32 =  0xffffffff;
-
 fn parse_section_header_ty(ty : u32) -> SectionHeaderType {
     match ty {
          0 => SectionHeaderType::NULL,
@@ -566,7 +731,7 @@ fn parse_section_header_ty(ty : u32) -> SectionHeaderType {
         0xe        => SectionHeaderType::INIT_ARRAY,
         0xf        => SectionHeaderType::FINI_ARRAY,
 
-        _ => panic!("parse_section_header_type: Unexpected input: 0x{0:X}", ty),
+        _ => panic!("parse_section_header_type: Unknown section header type: 0x{0:X}", ty),
     }
 }
 
@@ -605,4 +770,26 @@ fn read_u64(endianness : Endianness, from : &[u8]) -> u64 {
                 | (read_u32(endianness.clone(), &from[ 4 .. ]) as u64)
         }
     }
+}
+
+/// Extract bytes of string slices from a string table.
+/// Strings do not have null terminator!
+pub fn read_string_table(bytes : &[u8]) -> Vec<&[u8]> {
+    let mut ret = Vec::new();
+
+    // First byte is always zero, as is the last byte.
+    let mut start = 1;
+    let mut i     = 2;
+
+    while i < bytes.len() {
+        if unsafe { *bytes.get_unchecked(i) } == 0 {
+            ret.push( &bytes[ start .. i ] );
+            start = i + 1;
+            i     = start + 1;
+        } else {
+            i += 1;
+        }
+    }
+
+    ret
 }
