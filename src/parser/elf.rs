@@ -1,3 +1,6 @@
+/// Specification and parsing of ELF files. Documentation mostly copied from the
+/// man page.
+
 use std::borrow::Borrow;
 use std::clone::Clone;
 use std::ffi::CString;
@@ -5,6 +8,10 @@ use std::fs::File;
 use std::io::Error;
 use std::io::Read;
 use std::path::Path;
+
+////////////////////////////////////////////////////////////////////////////////
+// Specification of ELF format
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
 pub enum ParseResult {
@@ -29,7 +36,6 @@ pub enum ObjType { Relocatable, Executable, Shared, Core }
 #[derive(Debug)]
 pub enum ISA { NA, SPARC, X86, MIPS, PowerPC, ARM, SuperH, IA64, X86_64, AArch64 }
 
-/// ELF header.
 #[derive(Debug)]
 pub struct ELFHeader {
     class: Class,
@@ -79,6 +85,135 @@ pub struct ELFHeader {
     /// name string table. Zero if the file has no section name string table.
     shstrndx: u16,
 }
+
+#[derive(Debug)]
+struct SectionHeader32 {
+    /// Name of the section. Its value is an index into the section header
+    /// string table section, giving the location of a null-terminated string.
+    name: u32,
+
+    /// Categorizes the section's contents and semantics.
+    ty: SectionHeaderType,
+
+    flags: u32,
+
+    /// If the section will appear in the memory image of a process, this is the
+    /// address at which the section's first byte should reside. Otherwise it's 0.
+    addr: u32,
+
+    /// The byte offset from the beginning of the file to the first byte in the
+    /// section.
+    offset: u32,
+
+    /// The section's size in bytes.
+    size: u32,
+
+    /// Section header table index link.
+    // ???
+    link: u32,
+
+    /// Extra information, whose interpretation depends on the section type.
+    info: u32,
+
+    /// Alignment constraints.
+    addralign: u32,
+
+    /// Some sections hold a table of fixed-size entries, such as a symbol
+    /// table. For such a section, this gives the size in bytes of each entry.
+    /// 0 if the section does not hold a table of fixed-size entries.
+    entsize: u32,
+}
+
+/// See documentation of `SectionHeader64`.
+#[derive(Debug)]
+struct SectionHeader64 {
+    name: u32,
+    ty: SectionHeaderType,
+    flags: u64,
+    addr: u64,
+    offset: u64,
+    size: u64,
+    link: u32,
+    info: u32,
+    addralign: u64,
+    entsize: u64,
+}
+
+#[derive(Debug)]
+enum SectionHeaderType {
+    /// This marks the section header as inactive. It does not have an
+    /// associated section. Other members of the section header have undefined
+    /// values.
+    NULL,
+
+    /// The section holds information defined by the program, whose format and
+    /// meaning are determined solely by the program.
+    PROGBITS,
+
+    /// The section holds a symbol table. Typically, `SYMTAB` provides symbols
+    /// for link editing, though it may also be used for dynamic linking. As a
+    /// complete symbol table, it may contain many symbols unnecessary for
+    /// dynamic linking. An object file can also contain a `DYNSYM` section.
+    SYMTAB,
+
+    /// The section holds a string table. An object file may have multiple
+    /// string table sections.
+    STRTAB,
+
+    /// The section holds relocation entries with explicit addends An object may
+    /// have multiple relocation sections.
+    RELA,
+
+    /// The section holds a symbol hash table. An object participating in
+    /// dynamic linking must contain a symbol hash table. An object file may
+    /// have only one hash table.
+    HASH,
+
+    /// The section holds information for dynamic linking. An object file may
+    /// have only one dynamic section.
+    DYNAMIC,
+
+    /// The section holds information that marks the file in some way.
+    NOTE,
+
+    /// A section of this type occupies no space in the file but otherwise
+    /// resembles `PROGBITS`. Although this section contains no bytes, the
+    /// `offset` member contains the conceptual file offset.
+    NOBITS,
+
+    /// The section holds relocation offsets without explicit addends. An
+    /// object file may have multiple relocation sections.
+    REL,
+
+    /// The section is reserved but has unspecified semantics.
+    SHLIB,
+
+    /// The section holds a minimal set of dynamic linking symbols. An object
+    /// file can also contain a `SYMTAB` section.
+    DYNSYM,
+
+    /// This value up to and including `HIPROC` is reserved for
+    /// processor-specific semantics.
+    LOPROC,
+
+    /// This value down to and including `LOPROC` is reserved for
+    /// processor-specific semantics.
+    HIPROC,
+
+    /// This value specifies the lower bound of the range of indices reserved
+    /// for application programs.
+    LOUSER,
+
+    /// This value specifies the upper bound of the range of indices reserved
+    /// for application programs. Section types between `LOUSER` and `HIUSER`
+    /// may be used by the application, without conflicting with current or
+    /// future system-defined section types.
+    HIUSER,
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Parsing
+////////////////////////////////////////////////////////////////////////////////
 
 pub fn parse(path : &Path) -> ParseResult {
     let mut contents = Vec::new();
