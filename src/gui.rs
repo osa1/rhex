@@ -75,6 +75,7 @@ impl<'gui> Gui<'gui> {
     }
 
     pub fn draw(&mut self) {
+        nc::clear();
         opt(&self.hex_grid, |g| g.draw());
         opt(&self.ascii_view, |g| g.draw());
         opt(&self.info_line, |g| g.draw());

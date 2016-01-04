@@ -57,6 +57,8 @@ impl GotoOverlay {
     }
 
     pub fn draw(&self) {
+        nc::wclear( self.win );
+
         nc::box_(self.win, 0, 0);
 
         nc::mvwaddstr( self.win, 3, 5, "Goto byte offset:" );
@@ -98,7 +100,6 @@ impl GotoOverlay {
 
         else if ch == nc::KEY_BACKSPACE || ch == 127 { // backspace
             self.input.pop();
-            nc::wclear( self.win );
             OverlayRet::Continue
         }
 
