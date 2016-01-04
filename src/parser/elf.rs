@@ -501,13 +501,13 @@ fn parse_section_header_64(endianness : Endianness, contents : &[u8]) -> Section
     let name   = read_u32(endianness.clone(),  contents);
     let ty     = read_u32(endianness.clone(), &contents[ 4 .. ]);
     let flags  = read_u64(endianness.clone(), &contents[ 8 .. ]);
-    let addr   = read_u64(endianness.clone(), &contents[ 12 .. ]);
-    let offset = read_u64(endianness.clone(), &contents[ 16 .. ]);
-    let size   = read_u64(endianness.clone(), &contents[ 20 .. ]);
-    let link   = read_u32(endianness.clone(), &contents[ 24 .. ]);
-    let info   = read_u32(endianness.clone(), &contents[ 28 .. ]);
-    let addralign = read_u64(endianness.clone(), &contents[ 32 .. ]);
-    let entsize = read_u64(endianness.clone(), &contents[ 36 .. ]);
+    let addr   = read_u64(endianness.clone(), &contents[ 16 .. ]);
+    let offset = read_u64(endianness.clone(), &contents[ 24 .. ]);
+    let size   = read_u64(endianness.clone(), &contents[ 32 .. ]);
+    let link   = read_u32(endianness.clone(), &contents[ 40 .. ]);
+    let info   = read_u32(endianness.clone(), &contents[ 44 .. ]);
+    let addralign = read_u64(endianness.clone(), &contents[ 48 .. ]);
+    let entsize = read_u64(endianness.clone(), &contents[ 56 .. ]);
 
     SectionHeader64 {
         name: name,
