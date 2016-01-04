@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::cmp;
 
 use colors::Color;
 use gui::Gui;
@@ -130,6 +131,7 @@ impl<'grid> HexGrid<'grid> {
                 }
             }
 
+            self.update_ascii_view();
             true
 
         } else if key == nc::KEY_DOWN || key == b'j' as i32 {
@@ -263,18 +265,17 @@ impl<'grid> HexGrid<'grid> {
         }
     }
 
-    pub fn narrow(&mut self) {
-        // TODO: Replace cursor
-        if self.width > 3 {
-            self.width -= 3;
-        } else {
-            self.width = 0;
-        }
-    }
+    pub fn move_cursor(&mut self, byte_idx : i32) {
+        let byte_idx = cmp::min((self.data.len() - 1) as i32, byte_idx);
 
-    pub fn widen(&mut self) {
-        // TODO: Replace cursor
-        self.width += 3;
+        let bpl = self.bytes_per_line();
+        self.cursor_y = byte_idx / bpl;
+        self.cursor_x = (byte_idx % bpl) * 3;
+        self.scroll   =
+            if self.cursor_y < self.height { 0 }
+            else { self.cursor_y - self.height / 2 };
+
+        self.update_ascii_view();
     }
 }
 

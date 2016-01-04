@@ -3,6 +3,7 @@ extern crate ncurses;
 
 mod ascii_view;
 mod colors;
+mod goto;
 mod gui;
 mod hex_grid;
 mod info_line;

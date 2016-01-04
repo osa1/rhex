@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 
 use ascii_view::AsciiView;
 use colors;
+use goto::{GotoOverlay, OverlayRet};
 use hex_grid::HexGrid;
 use info_line::InfoLine;
 use utils::*;
@@ -14,6 +15,8 @@ pub struct Gui<'gui> {
     hex_grid: Option<HexGrid<'gui>>,
     ascii_view: Option<AsciiView<'gui>>,
     info_line: Option<InfoLine>,
+
+    overlay: Option<GotoOverlay>,
 }
 
 impl<'gui> Gui<'gui> {
@@ -25,7 +28,12 @@ impl<'gui> Gui<'gui> {
 
         colors::init_colors();
 
-        Gui { hex_grid: None, ascii_view: None, info_line: None }
+        Gui {
+            hex_grid: None,
+            ascii_view: None,
+            info_line: None,
+            overlay: None
+        }
     }
 
     pub fn init_widgets(&mut self, path : &'gui str, contents : &'gui Vec<u8>) {
@@ -70,22 +78,65 @@ impl<'gui> Gui<'gui> {
         opt(&self.hex_grid, |g| g.draw());
         opt(&self.ascii_view, |g| g.draw());
         opt(&self.info_line, |g| g.draw());
+        nc::refresh();
+        opt(&self.overlay, |g| g.draw());
     }
 
     pub fn mainloop(&mut self) {
         loop {
-            let ch = nc::getch();
+            let ch = self.get_char();
 
             if ch == b'q' as i32 {
                 break;
             }
 
-            opt_mut(&mut self.hex_grid, |g| { g.keypressed(ch); });
+            let mut overlay_ret = None;
+            match self.overlay {
+                None => {
+                    if ch == b'g' as i32 {
+                        self.mk_goto_overlay();
+                    } else {
+                        opt_mut(&mut self.hex_grid, |g| { g.keypressed(ch); })
+                    }
+                },
+                Some(ref mut o) => {
+                    overlay_ret = Some(o.keypressed(ch));
+                },
+            }
 
-            nc::clear();
+            if let Some(overlay_ret) = overlay_ret {
+                match overlay_ret {
+                    OverlayRet::Ret(offset) => {
+                        // TODO
+                        opt_mut(&mut self.hex_grid, |g| { g.move_cursor(offset); });
+                        self.overlay = None;
+                    },
+                    OverlayRet::Continue => {},
+                    OverlayRet::Abort => {
+                        self.overlay = None;
+                    },
+                }
+            };
+
+
             self.draw();
-            nc::refresh();
         }
+    }
+    
+    fn get_char(&self) -> i32 {
+        if let &Some(ref overlay) = &self.overlay {
+            nc::wgetch(overlay.win)
+        } else {
+            nc::getch()
+        }
+    }
+
+    fn mk_goto_overlay(&mut self) {
+        let mut scr_x = 0;
+        let mut scr_y = 0;
+        nc::getmaxyx(nc::stdscr, &mut scr_y, &mut scr_x);
+
+        self.overlay = Some(GotoOverlay::new( scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4 ));
     }
 }
 
