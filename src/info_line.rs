@@ -1,7 +1,6 @@
 use std::borrow::Borrow;
 
 use colors::Color;
-use gui::Gui;
 
 use ncurses as nc;
 
@@ -14,7 +13,7 @@ pub struct InfoLine {
 }
 
 impl InfoLine {
-    pub fn new(width: i32, pos_x: i32, pos_y: i32, text: &[u8], gui : *mut Gui) -> InfoLine {
+    pub fn new(width: i32, pos_x: i32, pos_y: i32, text: &[u8]) -> InfoLine {
         InfoLine {
             pos_x: pos_x,
             pos_y: pos_y,

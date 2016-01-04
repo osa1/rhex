@@ -9,17 +9,13 @@ mod hex_grid;
 mod info_line;
 mod utils;
 
-use std::borrow::Borrow;
 use std::env::args_os;
 use std::ffi::OsString;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use ascii_view::AsciiView;
 use gui::Gui;
-use hex_grid::HexGrid;
-use info_line::InfoLine;
 
 fn main() {
     let args : Vec<OsString> = args_os().collect();

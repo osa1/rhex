@@ -22,13 +22,7 @@ pub enum OverlayRet {
 }
 
 pub struct GotoOverlay {
-    pos_x : i32,
-    pos_y : i32,
-    width : i32,
-    height: i32,
-
     pub win: nc::WINDOW,
-
     input: String,
 }
 
@@ -47,10 +41,6 @@ impl GotoOverlay {
         let pos_y = pos_y + (height - height_) / 2;
 
         GotoOverlay {
-            pos_x: pos_x,
-            pos_y: pos_y,
-            width: width_,
-            height: height_,
             win: nc::newwin(height_, width_, pos_y, pos_x),
             input: String::new(),
         }

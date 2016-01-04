@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use ascii_view::AsciiView;
 use colors;
 use goto::{GotoOverlay, OverlayRet};
@@ -52,12 +50,11 @@ impl<'gui> Gui<'gui> {
                                            self as *mut Gui ));
 
         self.ascii_view = Some(AsciiView::new( unit_column, scr_y - 1, unit_column * 3 + 1, 0,
-                                               contents,
-                                               self as *mut Gui ));
+                                               contents ));
+                                              
 
         self.info_line = Some(InfoLine::new( unit_column * 4, 0, scr_y - 1,
-                                             format!("{} - 0: 0", path).as_bytes(),
-                                             self as *mut Gui ));
+                                             format!("{} - 0: 0", path).as_bytes() ));
 
         self.draw();
     }
