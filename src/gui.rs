@@ -88,19 +88,15 @@ impl<'gui> Gui<'gui> {
                 break;
             }
 
-            let mut overlay_ret = None;
-            match self.overlay {
-                None => {
-                    if ch == b'g' as i32 {
-                        self.mk_goto_overlay();
-                    } else {
-                        opt_mut(&mut self.hex_grid, |g| { g.keypressed(ch); })
-                    }
-                },
-                Some(ref mut o) => {
-                    overlay_ret = Some(o.keypressed(ch));
-                },
-            }
+            let overlay_ret =
+                match self.overlay {
+                    None => {
+                        self.keypressed(ch);
+                        None
+                    },
+                    Some(ref mut o) =>
+                        Some(o.keypressed(ch))
+                };
 
             if let Some(overlay_ret) = overlay_ret {
                 match overlay_ret {
@@ -120,8 +116,15 @@ impl<'gui> Gui<'gui> {
                 }
             };
 
-
             self.draw();
+        }
+    }
+
+    fn keypressed(&mut self, ch : i32) {
+        if ch == b'g' as i32 {
+            self.mk_goto_overlay();
+        } else {
+            opt_mut(&mut self.hex_grid, |g| { g.keypressed(ch); });
         }
     }
 
