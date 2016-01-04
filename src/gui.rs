@@ -51,7 +51,7 @@ impl<'gui> Gui<'gui> {
 
         self.ascii_view = Some(AsciiView::new( unit_column, scr_y - 1, unit_column * 3 + 1, 0,
                                                contents ));
-                                              
+
 
         self.info_line = Some(InfoLine::new( unit_column * 4, 0, scr_y - 1,
                                              format!("{} - 0: 0", path).as_bytes() ));
@@ -124,7 +124,7 @@ impl<'gui> Gui<'gui> {
             self.draw();
         }
     }
-    
+
     fn get_char(&self) -> i32 {
         if let &Some(ref overlay) = &self.overlay {
             nc::wgetch(overlay.win)
