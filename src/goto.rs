@@ -22,7 +22,7 @@ pub enum OverlayRet {
 }
 
 pub struct GotoOverlay {
-    pub win: nc::WINDOW,
+    win: nc::WINDOW,
     input: String,
 }
 
@@ -104,5 +104,9 @@ impl GotoOverlay {
         else {
             OverlayRet::Continue
         }
+    }
+
+    pub fn get_char(&self) -> i32 {
+        nc::wgetch( self.win )
     }
 }

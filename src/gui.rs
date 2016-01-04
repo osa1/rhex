@@ -127,7 +127,7 @@ impl<'gui> Gui<'gui> {
 
     fn get_char(&self) -> i32 {
         if let &Some(ref overlay) = &self.overlay {
-            nc::wgetch(overlay.win)
+            overlay.get_char()
         } else {
             nc::getch()
         }
