@@ -11,6 +11,9 @@ pub enum OverlayRet {
     /// User submitted the form.
     Ret(i32),
 
+    /// For vi-like "go to beginning" (gg)
+    GotoBeginning,
+
     /// User cancelled.
     Abort,
 
@@ -72,6 +75,10 @@ impl GotoOverlay {
         if ch >= b'0' as i32 && ch <= b'9' as i32 {
             self.input.push(char::from_u32(ch as u32).unwrap());
             OverlayRet::Continue
+        }
+
+        else if ch == b'g' as i32 {
+            OverlayRet::GotoBeginning
         }
 
         else if ch == 27 {

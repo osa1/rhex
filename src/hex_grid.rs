@@ -133,8 +133,9 @@ impl<'grid> HexGrid<'grid> {
 
             self.update_ascii_view();
             true
+        }
 
-        } else if key == nc::KEY_DOWN || key == b'j' as i32 {
+        else if key == nc::KEY_DOWN || key == b'j' as i32 {
             // TODO: This assumes there's at least one line
             let max_y = self.total_lines_needed() - 1;
 
@@ -157,8 +158,9 @@ impl<'grid> HexGrid<'grid> {
 
             self.update_ascii_view();
             true
+        }
 
-        } else if key == nc::KEY_LEFT || key == b'h' as i32 {
+        else if key == nc::KEY_LEFT || key == b'h' as i32 {
             if self.cursor_x > 0 {
                 self.cursor_x -= 1;
                 if (self.cursor_x + 1) % 3 == 0 {
@@ -168,8 +170,9 @@ impl<'grid> HexGrid<'grid> {
 
             self.update_ascii_view();
             true
+        }
 
-        } else if key == nc::KEY_RIGHT || key == b'l' as i32 {
+        else if key == nc::KEY_RIGHT || key == b'l' as i32 {
             let next_on_blank =
                 // add 1 to move to next column
                 // add 1 to make the index 1-based
@@ -198,8 +201,14 @@ impl<'grid> HexGrid<'grid> {
 
             self.update_ascii_view();
             true
+        }
 
-        } else {
+        else if key == b'G' as i32 {
+            self.move_cursor(self.data.len() as i32 - 1);
+            true
+        }
+
+        else {
             false
         }
     }

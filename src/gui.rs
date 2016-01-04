@@ -111,6 +111,10 @@ impl<'gui> Gui<'gui> {
                         opt_mut(&mut self.hex_grid, |g| { g.move_cursor(offset); });
                         self.overlay = None;
                     },
+                    OverlayRet::GotoBeginning => {
+                        opt_mut(&mut self.hex_grid, |g| { g.move_cursor(0); });
+                        self.overlay = None;
+                    },
                     OverlayRet::Continue => {},
                     OverlayRet::Abort => {
                         self.overlay = None;
