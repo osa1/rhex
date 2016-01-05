@@ -21,3 +21,12 @@ pub fn opt_mut<A, F>(o : &mut Option<A>, fun : F) where F : Fn(&mut A) {
         &mut Some(ref mut o) => fun(o),
     }
 }
+
+#[inline]
+pub fn hex_char(nibble : u8) -> u8 {
+    if nibble < 10 {
+        48 + nibble
+    } else {
+        97 + nibble - 10
+    }
+}

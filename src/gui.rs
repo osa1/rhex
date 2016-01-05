@@ -3,6 +3,7 @@ use colors;
 use goto::{GotoOverlay, OverlayRet};
 use hex_grid::HexGrid;
 use info_line::InfoLine;
+use search::{SearchOverlay, SearchRet};
 use utils::*;
 
 use ncurses as nc;
@@ -14,7 +15,13 @@ pub struct Gui<'gui> {
     ascii_view: Option<AsciiView<'gui>>,
     info_line: Option<InfoLine>,
 
-    overlay: Option<GotoOverlay>,
+    overlay: Overlay,
+}
+
+pub enum Overlay {
+    NoOverlay,
+    SearchOverlay(SearchOverlay),
+    GotoOverlay(GotoOverlay),
 }
 
 impl<'gui> Gui<'gui> {
@@ -30,7 +37,7 @@ impl<'gui> Gui<'gui> {
             hex_grid: None,
             ascii_view: None,
             info_line: None,
-            overlay: None
+            overlay: Overlay::NoOverlay,
         }
     }
 
@@ -71,13 +78,18 @@ impl<'gui> Gui<'gui> {
         &mut self.info_line
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&self) {
         nc::clear();
         opt(&self.hex_grid, |g| g.draw());
         opt(&self.ascii_view, |g| g.draw());
         opt(&self.info_line, |g| g.draw());
         nc::refresh();
-        opt(&self.overlay, |g| g.draw());
+
+        match self.overlay {
+            Overlay::NoOverlay => {},
+            Overlay::SearchOverlay(ref o) => o.draw(),
+            Overlay::GotoOverlay(ref o) => o.draw(),
+        }
     }
 
     pub fn mainloop(&mut self) {
@@ -88,33 +100,44 @@ impl<'gui> Gui<'gui> {
                 break;
             }
 
-            let overlay_ret =
-                match self.overlay {
-                    None => {
-                        self.keypressed(ch);
-                        None
-                    },
-                    Some(ref mut o) =>
-                        Some(o.keypressed(ch))
-                };
+            let mut reset_overlay = false;
+            match self.overlay {
+                Overlay::NoOverlay => self.keypressed(ch),
 
-            if let Some(overlay_ret) = overlay_ret {
-                match overlay_ret {
-                    OverlayRet::Ret(offset) => {
-                        // TODO
-                        opt_mut(&mut self.hex_grid, |g| { g.move_cursor(offset); });
-                        self.overlay = None;
-                    },
-                    OverlayRet::GotoBeginning => {
-                        opt_mut(&mut self.hex_grid, |g| { g.move_cursor(0); });
-                        self.overlay = None;
-                    },
-                    OverlayRet::Continue => {},
-                    OverlayRet::Abort => {
-                        self.overlay = None;
-                    },
+                Overlay::GotoOverlay(ref mut o) => {
+                    match o.keypressed(ch) {
+                        OverlayRet::Ret(offset) => {
+                            opt_mut(&mut self.hex_grid, |g| { g.move_cursor(offset); });
+                            // self.overlay = Overlay::NoOverlay;
+                            reset_overlay = true;
+                        },
+                        OverlayRet::GotoBeginning => {
+                            opt_mut(&mut self.hex_grid, |g| { g.move_cursor(0); });
+                            // self.overlay = Overlay::NoOverlay;
+                            reset_overlay = true;
+                        },
+                        OverlayRet::Continue => {},
+                        OverlayRet::Abort => {
+                            // self.overlay = Overlay::NoOverlay;
+                            reset_overlay = true;
+                        },
+                    }
+                },
+
+                Overlay::SearchOverlay(ref mut o) => {
+                    match o.keypressed(ch) {
+                        SearchRet::Highlight{ focus: f, all_bytes: bs, len: l } => {},
+                        SearchRet::Abort => {
+                            reset_overlay = true;
+                        },
+                        SearchRet::Continue => { /* nothing to do */ }
+                    }
                 }
             };
+
+            if reset_overlay {
+                self.overlay = Overlay::NoOverlay;
+            }
 
             self.draw();
         }
@@ -123,16 +146,18 @@ impl<'gui> Gui<'gui> {
     fn keypressed(&mut self, ch : i32) {
         if ch == b'g' as i32 {
             self.mk_goto_overlay();
+        } else if ch == b'/' as i32 {
+            self.mk_search_overlay();
         } else {
             opt_mut(&mut self.hex_grid, |g| { g.keypressed(ch); });
         }
     }
 
     fn get_char(&self) -> i32 {
-        if let &Some(ref overlay) = &self.overlay {
-            overlay.get_char()
-        } else {
-            nc::getch()
+        match self.overlay {
+            Overlay::NoOverlay => nc::getch(),
+            Overlay::GotoOverlay(ref o) => o.get_char(),
+            Overlay::SearchOverlay(ref o) => o.get_char(),
         }
     }
 
@@ -141,7 +166,18 @@ impl<'gui> Gui<'gui> {
         let mut scr_y = 0;
         nc::getmaxyx(nc::stdscr, &mut scr_y, &mut scr_x);
 
-        self.overlay = Some(GotoOverlay::new( scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4 ));
+        self.overlay =
+            Overlay::GotoOverlay(GotoOverlay::new( scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4 ));
+    }
+
+    fn mk_search_overlay(&mut self) {
+        let mut scr_x = 0;
+        let mut scr_y = 0;
+        nc::getmaxyx(nc::stdscr, &mut scr_y, &mut scr_x);
+        
+        self.overlay =
+            Overlay::SearchOverlay(
+                SearchOverlay::new( scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4 ));
     }
 }
 

@@ -287,12 +287,3 @@ impl<'grid> HexGrid<'grid> {
         self.update_ascii_view();
     }
 }
-
-#[inline]
-fn hex_char(nibble : u8) -> u8 {
-    if nibble < 10 {
-        48 + nibble
-    } else {
-        97 + nibble - 10
-    }
-}
