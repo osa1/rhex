@@ -173,6 +173,14 @@ impl SearchOverlay {
             }
         }
 
+        else if ch == nc::KEY_BACKSPACE || ch == 127 {
+            match self.buffer.pop() {
+                None => {},
+                Some(_) => { self.byte_cursor -= 1; }
+            }
+            SearchRet::Continue
+        }
+
         else {
             match self.mode {
                 SearchMode::Ascii => {
