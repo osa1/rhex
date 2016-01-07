@@ -112,7 +112,7 @@ impl SearchOverlay {
         // here should be very simple as we don't have to deal with scrolling,
         // jumping around etc.
         let start_column = self.width / 2 + 1;
-        let width        = (self.width - 1) / 2 - 1;
+        let width        = self.width / 2 - 2;
 
         // We skip first row and column as it's occupied by the window border
         let mut col = 1;
@@ -135,12 +135,9 @@ impl SearchOverlay {
 
         // Draw cursor
         let mut bytes_per_line = width / 3;
-        if width % 3 == 2 {
-            bytes_per_line += 1;
-        }
 
         let cursor_x_byte = self.byte_cursor as i32 % bytes_per_line;
-        let cursor_x      = cursor_x_byte * 3;
+        let cursor_x      = cursor_x_byte * 3 + 1;
         let cursor_y      = self.byte_cursor as i32 / bytes_per_line;
 
         let byte =
