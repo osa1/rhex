@@ -1,5 +1,8 @@
 use std::cmp;
 
+// Is there a better way to make writeln! working with std::io::stderr()?
+use std::io::prelude::*;
+
 use colors::Color;
 use utils::*;
 
@@ -9,13 +12,13 @@ pub enum SearchRet {
     /// Highlight these bytes.
     Highlight {
         /// Byte in focus.
-        focus: i32,
+        focus: usize,
 
         /// All matching byte offsets.
-        all_bytes: Vec<i32>,
+        all_bytes: Vec<usize>,
 
         /// Length of searched bytes.
-        len: i32,
+        len: usize,
     },
 
     /// User cancelled.
@@ -27,7 +30,7 @@ pub enum SearchRet {
 
 enum SearchMode { Ascii, Hex }
 
-pub struct SearchOverlay {
+pub struct SearchOverlay<'overlay> {
     win: nc::WINDOW,
     width: i32,
     height: i32,
@@ -38,16 +41,19 @@ pub struct SearchOverlay {
 
     /// Byte offset in buffer.
     byte_cursor: usize,
+
+    contents: &'overlay Vec<u8>
 }
 
-impl Drop for SearchOverlay {
+impl<'overlay> Drop for SearchOverlay<'overlay> {
     fn drop(&mut self) {
         nc::delwin(self.win);
     }
 }
 
-impl SearchOverlay {
-    pub fn new(width: i32, height: i32, pos_x: i32, pos_y: i32) -> SearchOverlay {
+impl<'overlay> SearchOverlay<'overlay> {
+    pub fn new(width: i32, height: i32, pos_x: i32, pos_y: i32, contents: &'overlay Vec<u8>)
+               -> SearchOverlay<'overlay> {
         let width_ = cmp::min(width, 50);
         let height_ = cmp::min(height, 10);
 
@@ -62,6 +68,8 @@ impl SearchOverlay {
             mode: SearchMode::Ascii,
             buffer: Vec::new(),
             byte_cursor: 0,
+
+            contents: contents,
         }
     }
 
@@ -111,8 +119,8 @@ impl SearchOverlay {
         // Ideally we could reuse some of the code from HexGrid, but the code
         // here should be very simple as we don't have to deal with scrolling,
         // jumping around etc.
-        let start_column = self.width / 2 + 1;
-        let width        = self.width / 2 - 2;
+        let start_column = self.width / 2;
+        let width        = self.width / 2 - 1;
 
         // We skip first row and column as it's occupied by the window border
         let mut col = 1;
@@ -181,6 +189,20 @@ impl SearchOverlay {
             SearchRet::Continue
         }
 
+        else if ch == 10 || ch == b'\n' as i32 {
+            if self.buffer.len() != 0 {
+                // do the search
+                let offsets = self.find_offsets();
+                SearchRet::Highlight {
+                    focus: self.byte_cursor,
+                    all_bytes: offsets,
+                    len: self.buffer.len(),
+                }
+            } else {
+                SearchRet::Continue
+            }
+        }
+
         else {
             match self.mode {
                 SearchMode::Ascii => {
@@ -203,5 +225,44 @@ impl SearchOverlay {
 
     pub fn get_char(&self) -> i32 {
         nc::wgetch(self.win)
+    }
+
+    fn find_offsets(&self) -> Vec<usize> {
+        let mut ret = Vec::new();
+
+        let first_byte = self.buffer[0];
+
+        // It seems like Vec API doesn't help us here. As a first
+        // implementation, I do a O(n * k) search here.
+        let mut byte_offset = 0;
+        while byte_offset < self.contents.len() {
+            let byte = unsafe { *self.contents.get_unchecked(byte_offset) };
+            if byte == first_byte {
+                if try_match(&self.contents[ byte_offset + 1 ..  ], &self.buffer[ 1 .. ]) {
+                    ret.push(byte_offset);
+                    byte_offset += self.buffer.len();
+                    continue;
+                }
+            }
+
+            byte_offset += 1;
+        }
+
+        // writeln!(&mut ::std::io::stderr(), "find_offsets: {:?}", ret);
+        ret
+    }
+}
+
+fn try_match(s1 : &[u8], s2 : &[u8]) -> bool {
+    if s2.len() > s1.len() {
+        false
+    } else {
+        for (byte1, byte2) in s1.iter().zip(s2.iter()) {
+            if byte1 != byte2 {
+                return false;
+            }
+        }
+
+        true
     }
 }

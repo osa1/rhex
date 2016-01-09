@@ -1,6 +1,8 @@
 use std::borrow::Borrow;
 use std::cmp;
 
+use std::io::prelude::*;
+
 use colors::Color;
 use gui::Gui;
 use utils::*;
@@ -226,14 +228,17 @@ impl<'grid> HexGrid<'grid> {
                                        self.get_column()).into_bytes().borrow()));
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, hl: &Vec<usize>, hl_len: usize) {
         let cols = self.bytes_per_line();
         let rows = self.height;
+
+        let mut hl_idx = 0;
 
         'outer:
         for row in self.scroll .. self.scroll + rows {
             for col in 0 .. cols {
-                if let Some(&byte) = self.data.get((row * cols + col) as usize) {
+                let byte_idx = (row * cols + col) as usize;
+                if let Some(&byte) = self.data.get(byte_idx) {
                     let char1 : u8 = hex_char(byte >> 4);
                     let char2 : u8 = hex_char(byte & 0b00001111);
 
@@ -243,8 +248,27 @@ impl<'grid> HexGrid<'grid> {
                         if self.has_focus { Color::CursorFocus.attr() }
                         else { Color::CursorNoFocus.attr() };
 
+                    while hl_idx < hl.len() && hl[hl_idx] + hl_len < byte_idx {
+                        hl_idx += 1;
+                    }
+
+                    let hl_attr = {
+                        if let Some(&hl_offset) = hl.get(hl_idx) {
+                            if byte_idx >= hl_offset && byte_idx < hl_offset + hl_len {
+                                // writeln!(&mut ::std::io::stderr(), "highlighting char: {}", byte as char);
+                                Color::Highlight.attr()
+                            } else {
+                                0
+                            }
+                        } else {
+                            0
+                        }
+                    };
+
                     if attr_1 {
                         nc::attron( nc::A_BOLD() | color_attr );
+                    } else if hl_attr != 0 {
+                        nc::attron( hl_attr );
                     }
 
                     nc::mvaddch( self.pos_y + row - self.scroll,
@@ -252,11 +276,15 @@ impl<'grid> HexGrid<'grid> {
 
                     if attr_1 {
                         nc::attroff( nc::A_BOLD() | color_attr );
+                    } else if hl_attr != 0 {
+                        nc::attroff( hl_attr );
                     }
 
 
                     if attr_2 {
                         nc::attron( nc::A_BOLD() | color_attr );
+                    } else if hl_attr != 0 {
+                        nc::attron( hl_attr );
                     }
 
                     nc::mvaddch( self.pos_y + row - self.scroll,
@@ -264,6 +292,19 @@ impl<'grid> HexGrid<'grid> {
 
                     if attr_2 {
                         nc::attroff( nc::A_BOLD() | color_attr );
+                    } else if hl_attr != 0 {
+                        nc::attroff( hl_attr );
+                    }
+
+                    // When highlighting a word, paint the space between bytes too
+                    let highlight = hl_attr != 0 && byte_idx + 1 < hl[hl_idx] + hl_len;
+
+                    let space_col = self.pos_x + col * 3 + 2;
+                    if highlight && space_col < self.width - 1 {
+                        nc::attron( color_attr );
+                        nc::mvaddch( self.pos_y + row - self.scroll,
+                                     space_col, b' ' as u64 );
+                        nc::attroff( color_attr );
                     }
 
                 } else {
