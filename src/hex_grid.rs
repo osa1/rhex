@@ -301,10 +301,9 @@ impl<'grid> HexGrid<'grid> {
 
                     let space_col = self.pos_x + col * 3 + 2;
                     if highlight && space_col < self.width - 1 {
-                        nc::attron( color_attr );
-                        nc::mvaddch( self.pos_y + row - self.scroll,
-                                     space_col, b' ' as u64 );
-                        nc::attroff( color_attr );
+                        nc::attron( hl_attr );
+                        nc::mvaddch( self.pos_y + row - self.scroll, space_col, b' ' as u64 );
+                        nc::attroff( hl_attr );
                     }
 
                 } else {
