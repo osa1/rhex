@@ -120,6 +120,16 @@ impl<'grid> HexGrid<'grid> {
         self.cursor_y
     }
 
+    pub fn get_scroll(&self) -> i32 {
+        self.scroll
+    }
+
+    pub fn try_center_scroll(&mut self) {
+        if self.cursor_y - self.height / 2 >= 0 {
+            self.scroll = self.cursor_y - self.height / 2;
+        }
+    }
+
     pub fn keypressed(&mut self, key : i32) -> bool {
         if key == nc::KEY_UP || key == b'k' as i32 {
             if self.cursor_y > self.scroll + 2 && self.cursor_y > 0 {

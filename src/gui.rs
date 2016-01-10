@@ -163,6 +163,26 @@ impl<'gui> Gui<'gui> {
             self.mk_search_overlay();
         }
 
+        else if ch == b'z' as i32 {
+            let next_ch = self.get_char();
+            if next_ch == b'z' as i32 {
+                match self.hex_grid {
+                    None => {},
+                    Some(ref mut hex) => {
+                        hex.try_center_scroll();
+                        match self.ascii_view {
+                            None => {},
+                            Some(ref mut ascii) => {
+                                ascii.set_scroll(hex.get_scroll());
+                            }
+                        }
+                    }
+                }
+            } else {
+                // ignore
+            }
+        }
+
         else if ch == b'n' as i32 {
             let hls = &self.highlight;
             opt_mut(&mut self.hex_grid, |g| {

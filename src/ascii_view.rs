@@ -35,6 +35,10 @@ impl<'view> AsciiView<'view> {
         }
     }
 
+    pub fn set_scroll(&mut self, scroll : i32) {
+        self.scroll = scroll;
+    }
+
     pub fn draw(&self, hl: &Vec<usize>, hl_len: usize) {
         let rows = self.height;
         let cols = self.width;
