@@ -223,14 +223,6 @@ impl<'overlay> SearchOverlay<'overlay> {
             }
         }
 
-        else if ch == nc::KEY_BACKSPACE || ch == 127 {
-            match self.buffer.pop() {
-                None => {},
-                Some(_) => { self.byte_cursor -= 1; }
-            }
-            SearchRet::Continue
-        }
-
         else if ch == 10 || ch == b'\n' as i32 {
             if self.buffer.len() != 0 {
                 // do the search
@@ -246,7 +238,6 @@ impl<'overlay> SearchOverlay<'overlay> {
         }
 
         else if ch == b'\t' as i32 {
-            writeln!(&mut ::std::io::stderr(), "tab");
             let new_sm = match self.mode {
                 SearchMode::Ascii => SearchMode::Hex,
                 SearchMode::Hex   => SearchMode::Ascii,
@@ -259,13 +250,24 @@ impl<'overlay> SearchOverlay<'overlay> {
         else {
             match self.mode {
                 SearchMode::Ascii => {
-                    match ch {
-                        0 ... 0xFF => {
-                            self.buffer.push(ch as u8);
-                            self.byte_cursor += 1;
-                            self.nibble_cursor = NibbleCursor::MS;
-                        },
-                        _ => { /* ignore */ },
+                    if ch == nc::KEY_BACKSPACE || ch == 127 {
+                        match self.buffer.pop() {
+                            None => {},
+                            Some(_) => {
+                                if self.byte_cursor != 0 {
+                                    self.byte_cursor -= 1;
+                                }
+                            }
+                        }
+                    } else {
+                        match ch {
+                            0 ... 0xFF => {
+                                self.buffer.push(ch as u8);
+                                self.byte_cursor += 1;
+                                self.nibble_cursor = NibbleCursor::MS;
+                            },
+                            _ => { /* ignore */ },
+                        }
                     }
                 },
                 SearchMode::Hex => {
@@ -314,6 +316,36 @@ impl<'overlay> SearchOverlay<'overlay> {
                                 NibbleCursor::LS => {
                                     self.nibble_cursor = NibbleCursor::MS;
                                     self.byte_cursor += 1;
+                                }
+                            }
+                        }
+                    }
+
+                    else if ch == nc::KEY_BACKSPACE || ch == 127 {
+                        match self.nibble_cursor {
+                            NibbleCursor::LS => {
+                                let byte = self.buffer[self.byte_cursor];
+                                self.buffer[self.byte_cursor] = byte & 0b11110000;
+                                self.nibble_cursor = NibbleCursor::MS;
+                            },
+                            NibbleCursor::MS => {
+                                if self.byte_cursor >= self.buffer.len() && self.byte_cursor != 0 {
+                                    self.byte_cursor -= 1;
+                                    self.nibble_cursor = NibbleCursor::LS;
+                                } else {
+                                    match self.buffer.pop() {
+                                        None => {
+                                            self.nibble_cursor = NibbleCursor::MS;
+                                        },
+                                        Some(_) => {
+                                            if self.byte_cursor != 0 {
+                                                self.byte_cursor -= 1;
+                                                self.nibble_cursor = NibbleCursor::LS;
+                                            } else {
+                                                self.nibble_cursor = NibbleCursor::MS;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
