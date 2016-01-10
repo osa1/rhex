@@ -30,6 +30,22 @@ pub enum SearchRet {
 
 enum SearchMode { Ascii, Hex }
 
+enum NibbleCursor {
+    /// More significant part
+    MS,
+    /// Less significant part
+    LS,
+}
+
+impl NibbleCursor {
+    fn switch(self) -> NibbleCursor {
+        match self {
+            NibbleCursor::MS => NibbleCursor::LS,
+            NibbleCursor::LS => NibbleCursor::MS,
+        }
+    }
+}
+
 pub struct SearchOverlay<'overlay> {
     win: nc::WINDOW,
     width: i32,
@@ -41,6 +57,7 @@ pub struct SearchOverlay<'overlay> {
 
     /// Byte offset in buffer.
     byte_cursor: usize,
+    nibble_cursor: NibbleCursor,
 
     contents: &'overlay Vec<u8>
 }
@@ -68,6 +85,7 @@ impl<'overlay> SearchOverlay<'overlay> {
             mode: SearchMode::Ascii,
             buffer: Vec::new(),
             byte_cursor: 0,
+            nibble_cursor: NibbleCursor::MS,
 
             contents: contents,
         }
@@ -110,9 +128,17 @@ impl<'overlay> SearchOverlay<'overlay> {
                 self.buffer[self.byte_cursor]
             };
 
-        nc::wattron(self.win, Color::CursorFocus.attr());
+        match self.mode {
+            SearchMode::Ascii => { nc::wattron(self.win, Color::CursorFocus.attr()); },
+            SearchMode::Hex   => { nc::wattron(self.win, Color::CursorNoFocus.attr()); },
+        }
+
         nc::mvwaddch(self.win, cursor_y as i32 + 1, cursor_x as i32, byte as u64);
-        nc::wattroff(self.win, Color::CursorFocus.attr());
+
+        match self.mode {
+            SearchMode::Ascii => { nc::wattroff(self.win, Color::CursorFocus.attr()); },
+            SearchMode::Hex   => { nc::wattroff(self.win, Color::CursorNoFocus.attr()); },
+        }
     }
 
     fn draw_hex(&self) {
@@ -146,18 +172,34 @@ impl<'overlay> SearchOverlay<'overlay> {
 
         let cursor_x_byte = self.byte_cursor as i32 % bytes_per_line;
         let cursor_x      = cursor_x_byte * 3 + 1;
+        let cursor_x      =
+            match self.nibble_cursor {
+                NibbleCursor::MS => cursor_x,
+                NibbleCursor::LS => cursor_x + 1,
+            };
         let cursor_y      = self.byte_cursor as i32 / bytes_per_line;
 
         let byte =
             if self.byte_cursor >= self.buffer.len() {
-                b' '
+                b' ' as u8
             } else {
-                self.buffer[self.byte_cursor]
+                match self.nibble_cursor {
+                    NibbleCursor::MS => hex_char(self.buffer[self.byte_cursor] >> 4),
+                    NibbleCursor::LS => hex_char(self.buffer[self.byte_cursor] & 0b00001111),
+                }
             };
 
-        nc::wattron(self.win, Color::CursorNoFocus.attr());
+        match self.mode {
+            SearchMode::Hex   => { nc::wattron(self.win, Color::CursorFocus.attr()); },
+            SearchMode::Ascii => { nc::wattron(self.win, Color::CursorNoFocus.attr()); },
+        }
+
         nc::mvwaddch(self.win, cursor_y + 1, start_column + cursor_x, byte as u64);
-        nc::wattroff(self.win, Color::CursorNoFocus.attr());
+
+        match self.mode {
+            SearchMode::Hex   => { nc::wattroff(self.win, Color::CursorFocus.attr()); },
+            SearchMode::Ascii => { nc::wattroff(self.win, Color::CursorNoFocus.attr()); },
+        }
     }
 
     pub fn keypressed(&mut self, ch : i32) -> SearchRet {
@@ -203,6 +245,17 @@ impl<'overlay> SearchOverlay<'overlay> {
             }
         }
 
+        else if ch == b'\t' as i32 {
+            writeln!(&mut ::std::io::stderr(), "tab");
+            let new_sm = match self.mode {
+                SearchMode::Ascii => SearchMode::Hex,
+                SearchMode::Hex   => SearchMode::Ascii,
+            };
+
+            self.mode = new_sm;
+            SearchRet::Continue
+        }
+
         else {
             match self.mode {
                 SearchMode::Ascii => {
@@ -210,12 +263,61 @@ impl<'overlay> SearchOverlay<'overlay> {
                         0 ... 0xFF => {
                             self.buffer.push(ch as u8);
                             self.byte_cursor += 1;
+                            self.nibble_cursor = NibbleCursor::MS;
                         },
                         _ => { /* ignore */ },
                     }
                 },
                 SearchMode::Hex => {
+                    let nibble = match ch {
+                        65 ... 70 => {
+                            // A ... F
+                            Some((ch - 65 + 10) as u8)
+                        },
+                        97 ... 102 => {
+                            // a ... f
+                            Some((ch - 97 + 10) as u8)
+                        },
+                        48 ... 57 => {
+                            // 0 ... 9
+                            Some((ch - 48) as u8)
+                        },
+                        _ => { None }
+                    };
 
+                    if let Some(nibble) = nibble {
+                        let current_byte =
+                            if self.byte_cursor >= self.buffer.len() {
+                                0
+                            } else {
+                                self.buffer[self.byte_cursor]
+                            };
+
+                        let new_byte =
+                            match self.nibble_cursor {
+                                NibbleCursor::MS => {
+                                    (current_byte & 0b00001111) | (nibble << 4)
+                                },
+                                NibbleCursor::LS => {
+                                    (current_byte & 0b11110000) | nibble
+                                }
+                            };
+
+                        if self.byte_cursor >= self.buffer.len() {
+                            self.buffer.push(new_byte);
+                            self.nibble_cursor = NibbleCursor::LS;
+                        } else {
+                            self.buffer[self.byte_cursor] = new_byte;
+
+                            match self.nibble_cursor {
+                                NibbleCursor::MS => { self.nibble_cursor = NibbleCursor::LS },
+                                NibbleCursor::LS => {
+                                    self.nibble_cursor = NibbleCursor::MS;
+                                    self.byte_cursor += 1;
+                                }
+                            }
+                        }
+                    };
                 },
             }
 
