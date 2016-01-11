@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 use std::cmp;
+use std::ptr;
 
 use std::io::prelude::*;
 
@@ -29,8 +30,7 @@ pub struct HexGrid<'grid> {
 
 impl<'grid> HexGrid<'grid> {
     pub fn new(width : i32, height : i32, pos_x : i32, pos_y : i32, data: &'grid Vec<u8>,
-               path: &'grid str,
-               gui : *mut Gui<'grid>) -> HexGrid<'grid> {
+               path: &'grid str) -> HexGrid<'grid> {
         HexGrid {
             pos_x: pos_x,
             pos_y: pos_y,
@@ -47,8 +47,12 @@ impl<'grid> HexGrid<'grid> {
 
             has_focus: false,
 
-            gui: gui,
+            gui: ptr::null_mut(),
         }
+    }
+
+    pub fn set_gui(&mut self, gui : *mut Gui<'grid>) {
+        self.gui = gui;
     }
 
     /// How many bytes we can show in a line?
@@ -227,15 +231,11 @@ impl<'grid> HexGrid<'grid> {
 
     fn update_ascii_view(&self) {
         let gui : &mut Gui = unsafe { &mut *self.gui };
-
-        opt_mut(gui.get_ascii_view(),
-                |w| w.move_cursor(self.get_byte_idx()));
-
-        opt_mut(gui.get_info_line(),
-                |l| l.set_text(format!("{} - {}: {}",
-                                       self.path,
-                                       self.get_row(),
-                                       self.get_column()).into_bytes().borrow()));
+        gui.get_ascii_view().move_cursor(self.get_byte_idx());
+        gui.get_info_line().set_text(format!("{} - {}: {}",
+                                             self.path,
+                                             self.get_row(),
+                                             self.get_column()).into_bytes().borrow());
     }
 
     pub fn draw(&self, hl: &Vec<usize>, hl_len: usize) {

@@ -37,8 +37,9 @@ fn main() {
         }
     };
 
-    let mut gui = Gui::new(&contents);
-    gui.init_widgets(path.to_str().unwrap());
+    let mut gui = Gui::new(&contents, path.to_str().unwrap());
+    gui.init();
+    gui.draw();
     gui.mainloop();
 
     /*
