@@ -1,14 +1,9 @@
 extern crate libc;
 extern crate ncurses;
 
-mod ascii_view;
 mod colors;
-mod goto;
 mod gui;
-mod hex_grid;
-mod info_line;
 mod parser;
-mod search;
 mod utils;
 
 use std::borrow::Borrow;
@@ -19,7 +14,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use gui::Gui;
+use gui::hex::HexGui;
 
 fn main() {
     let args : Vec<OsString> = args_os().collect();
@@ -37,7 +32,7 @@ fn main() {
         }
     };
 
-    let mut gui = Gui::new(&contents, path.to_str().unwrap());
+    let mut gui = HexGui::new(&contents, path.to_str().unwrap());
     gui.init();
     gui.draw();
     gui.mainloop();

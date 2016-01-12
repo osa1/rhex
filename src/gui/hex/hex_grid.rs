@@ -4,9 +4,10 @@ use std::ptr;
 
 use std::io::prelude::*;
 
+use gui::hex::HexGui;
+
 use colors::Color;
-use gui::Gui;
-use utils::*;
+use utils;
 
 use ncurses as nc;
 
@@ -25,7 +26,7 @@ pub struct HexGrid<'grid> {
 
     has_focus: bool,
 
-    gui: *mut Gui<'grid>,
+    gui: *mut HexGui<'grid>,
 }
 
 impl<'grid> HexGrid<'grid> {
@@ -51,7 +52,7 @@ impl<'grid> HexGrid<'grid> {
         }
     }
 
-    pub fn set_gui(&mut self, gui : *mut Gui<'grid>) {
+    pub fn set_gui(&mut self, gui : *mut HexGui<'grid>) {
         self.gui = gui;
     }
 
@@ -230,7 +231,7 @@ impl<'grid> HexGrid<'grid> {
     }
 
     fn update_ascii_view(&self) {
-        let gui : &mut Gui = unsafe { &mut *self.gui };
+        let gui : &mut HexGui = unsafe { &mut *self.gui };
         gui.get_ascii_view().move_cursor(self.get_byte_idx());
         gui.get_info_line().set_text(format!("{} - {}: {}",
                                              self.path,
@@ -249,8 +250,8 @@ impl<'grid> HexGrid<'grid> {
             for col in 0 .. cols {
                 let byte_idx = (row * cols + col) as usize;
                 if let Some(&byte) = self.data.get(byte_idx) {
-                    let char1 : u8 = hex_char(byte >> 4);
-                    let char2 : u8 = hex_char(byte & 0b00001111);
+                    let char1 : u8 = utils::hex_char(byte >> 4);
+                    let char2 : u8 = utils::hex_char(byte & 0b00001111);
 
                     let attr_1 = col * 3     == self.cursor_x && row == self.cursor_y;
                     let attr_2 = col * 3 + 1 == self.cursor_x && row == self.cursor_y;

@@ -1,16 +1,23 @@
-use ascii_view::AsciiView;
+mod ascii_view;
+mod goto;
+mod hex_grid;
+mod info_line;
+mod search;
+
+use self::ascii_view::AsciiView;
+use self::goto::{GotoOverlay, OverlayRet};
+use self::hex_grid::HexGrid;
+use self::info_line::InfoLine;
+use self::search::{SearchOverlay, SearchRet};
+
 use colors;
-use goto::{GotoOverlay, OverlayRet};
-use hex_grid::HexGrid;
-use info_line::InfoLine;
-use search::{SearchOverlay, SearchRet};
 use utils::*;
 
 use ncurses as nc;
 
 /// GUI is the main thing that owns every widget. It's also responsible for
 /// ncurses initialization and finalization.
-pub struct Gui<'gui> {
+pub struct HexGui<'gui> {
     hex_grid: HexGrid<'gui>,
     ascii_view: AsciiView<'gui>,
     info_line: InfoLine,
@@ -30,8 +37,8 @@ pub enum Overlay<'overlay> {
 // WARNING: Moving this after init() will cause a segfault. Not calling init()
 // will cause a segfault.
 
-impl<'gui> Gui<'gui> {
-    pub fn new(contents: &'gui Vec<u8>, path : &'gui str) -> Gui<'gui> {
+impl<'gui> HexGui<'gui> {
+    pub fn new(contents: &'gui Vec<u8>, path : &'gui str) -> HexGui<'gui> {
         nc::initscr();
         nc::keypad( nc::stdscr, true );
         nc::noecho();
@@ -59,7 +66,7 @@ impl<'gui> Gui<'gui> {
         let info_line = InfoLine::new( unit_column * 4, 0, scr_y - 1,
                                        format!("{} - 0: 0", path).as_bytes() );
 
-        Gui {
+        HexGui {
             hex_grid: hex_grid,
             ascii_view: ascii_view,
             info_line: info_line,
@@ -72,7 +79,7 @@ impl<'gui> Gui<'gui> {
     }
 
     pub fn init(&mut self) {
-        let self_ptr = self as *mut Gui;
+        let self_ptr = self as *mut HexGui;
         self.hex_grid.set_gui(self_ptr);
     }
 
@@ -239,7 +246,7 @@ impl<'gui> Gui<'gui> {
     }
 }
 
-impl<'gui> Drop for Gui<'gui> {
+impl<'gui> Drop for HexGui<'gui> {
     fn drop(&mut self) {
         nc::endwin();
     }
