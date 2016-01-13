@@ -10,6 +10,8 @@ use self::hex_grid::HexGrid;
 use self::info_line::InfoLine;
 use self::search::{SearchOverlay, SearchRet};
 
+use gui::GuiRet;
+
 use colors;
 use utils::*;
 
@@ -109,12 +111,14 @@ impl<'gui> HexGui<'gui> {
         }
     }
 
-    pub fn mainloop(&mut self) {
+    pub fn mainloop(&mut self) -> GuiRet {
         loop {
             let ch = self.get_char();
 
             if ch == b'q' as i32 {
-                break;
+                return GuiRet::Break;
+            } else if ch == b'\t' as i32 {
+                return GuiRet::Switch;
             }
 
             let mut reset_overlay = false;

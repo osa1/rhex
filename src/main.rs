@@ -14,7 +14,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use gui::hex::HexGui;
+use gui::Gui;
 
 fn main() {
     let args : Vec<OsString> = args_os().collect();
@@ -32,9 +32,7 @@ fn main() {
         }
     };
 
-    let mut gui = HexGui::new(&contents, path.to_str().unwrap());
-    gui.init();
-    gui.draw();
+    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap());
     gui.mainloop();
 
     /*
