@@ -4,10 +4,10 @@ use gui::GuiRet;
 
 use ncurses as nc;
 
-pub struct ElfGui<'gui> {
-    elf_header : &'gui elf::ELFHeader,
-    section_headers: &'gui Vec<elf::SectionHeader>,
-    program_headers: &'gui Vec<elf::ProgramHeader>,
+pub struct ElfGui {
+    elf_header : elf::ELFHeader,
+    section_headers: Vec<elf::SectionHeader>,
+    program_headers: Vec<elf::ProgramHeader>,
 
     // layout related stuff
     width : i32,
@@ -34,11 +34,11 @@ enum SectionHeaderCursor {
     Name, Ty, Flags, Addr, Offset, Size, Link, Info, Addralign, Entsize
 }
 
-impl<'gui> ElfGui<'gui> {
-    pub fn new(elf_header: &'gui elf::ELFHeader,
-               section_headers: &'gui Vec<elf::SectionHeader>,
-               program_headers: &'gui Vec<elf::ProgramHeader>,
-               width: i32, height: i32, pos_x: i32, pos_y: i32) -> ElfGui<'gui> {
+impl ElfGui {
+    pub fn new(elf_header: elf::ELFHeader,
+               section_headers: Vec<elf::SectionHeader>,
+               program_headers: Vec<elf::ProgramHeader>,
+               width: i32, height: i32, pos_x: i32, pos_y: i32) -> ElfGui {
         ElfGui {
             elf_header: elf_header,
             section_headers: section_headers,
@@ -54,7 +54,12 @@ impl<'gui> ElfGui<'gui> {
     }
 
     pub fn mainloop(&mut self) -> GuiRet {
+        // We don't have timed events, set ncurses to blocking read mode
+        nc::timeout(-1);
+
         loop {
+            self.draw();
+
             let ch = self.get_char();
 
             if ch == b'q' as i32 {
@@ -62,8 +67,6 @@ impl<'gui> ElfGui<'gui> {
             } else if ch == b'\t' as i32 {
                 return GuiRet::Switch;
             }
-
-            self.draw();
         }
     }
 

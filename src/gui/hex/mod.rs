@@ -15,7 +15,11 @@ use gui::GuiRet;
 use colors;
 use utils::*;
 
+use std::time::Duration;
+use std::time::Instant;
+
 use ncurses as nc;
+use ncurses::constants as nc_cs;
 
 /// GUI is the main thing that owns every widget. It's also responsible for
 /// ncurses initialization and finalization.
@@ -28,6 +32,8 @@ pub struct HexGui<'gui> {
 
     highlight: Vec<usize>,
     highlight_len: usize,
+
+    timed_events : Vec<(Duration, TimedEvent)>
 }
 
 pub enum Overlay<'overlay> {
@@ -36,36 +42,30 @@ pub enum Overlay<'overlay> {
     GotoOverlay(GotoOverlay),
 }
 
+enum TimedEvent {
+    RestoreInfoLine,
+}
+
 // WARNING: Moving this after init() will cause a segfault. Not calling init()
 // will cause a segfault.
 
 impl<'gui> HexGui<'gui> {
-    pub fn new(contents: &'gui Vec<u8>, path : &'gui str) -> HexGui<'gui> {
-        nc::initscr();
-        nc::keypad( nc::stdscr, true );
-        nc::noecho();
-        nc::curs_set( nc::CURSOR_VISIBILITY::CURSOR_INVISIBLE );
-
-        colors::init_colors();
-
-        let mut scr_x = 0;
-        let mut scr_y = 0;
-        nc::getmaxyx(nc::stdscr, &mut scr_y, &mut scr_x);
-
+    pub fn new(contents: &'gui Vec<u8>, path : &'gui str,
+               width : i32, height : i32, pos_x : i32, pos_y : i32) -> HexGui<'gui> {
         // Layout: We leave 2 spaces between hex view and ascii view. Every byte
         // takes 3 characters in hex view and 1 character in ascii view. So we
         // have this 3/1 ratio.
 
-        let unit_column = scr_x / 4;
+        let unit_column = width / 4;
 
-        let mut hex_grid = HexGrid::new( unit_column * 3, scr_y - 1, 0, 0, contents,
+        let mut hex_grid = HexGrid::new( unit_column * 3, height - 1, 0, 0, contents,
                                          path );
 
-        let ascii_view = AsciiView::new( unit_column, scr_y - 1, unit_column * 3 + 1, 0,
+        let ascii_view = AsciiView::new( unit_column, height - 1, unit_column * 3 + 1, 0,
                                          contents );
 
 
-        let info_line = InfoLine::new( unit_column * 4, 0, scr_y - 1,
+        let info_line = InfoLine::new( unit_column * 4, 0, height - 1,
                                        format!("{} - 0: 0", path).as_bytes() );
 
         HexGui {
@@ -77,6 +77,8 @@ impl<'gui> HexGui<'gui> {
 
             highlight: Vec::new(),
             highlight_len: 0,
+
+            timed_events: Vec::new(),
         }
     }
 
@@ -111,11 +113,57 @@ impl<'gui> HexGui<'gui> {
         }
     }
 
+    pub fn notify(&mut self, msg : &[u8], dur : Duration) {
+        self.info_line.set_text(msg);
+        self.timed_events.push((dur, TimedEvent::RestoreInfoLine));
+    }
+
+    fn run_timed_events(&mut self, dt : Duration) {
+        let zero = Duration::new(0, 0);
+
+        // dat syntax tho
+        for &mut (ref mut event_dur, ref mut event) in self.timed_events.iter_mut() {
+            // I don't know what happens when a Duration goes negative. Probably
+            // wraps? Make sure this won't happen.
+            if *event_dur <= dt {
+                *event_dur = zero;
+
+                match *event {
+                    TimedEvent::RestoreInfoLine => {
+                        self.hex_grid.update_info_line();
+                    }
+                }
+
+            } else {
+                *event_dur = *event_dur - dt;
+            }
+        }
+
+        self.timed_events.retain(|s| s.0 != zero);
+    }
+
     pub fn mainloop(&mut self) -> GuiRet {
+        // Now that 1) we have timed events 2) I don't want to get into
+        // threading, I'm using timeouts here. We check for events with 0.1
+        // seconds granularity.
+        nc::timeout(100);
+
+        let mut now = Instant::now();
+
         loop {
+            self.draw();
+
+            let dt = now.elapsed();
+            now = Instant::now();
+
+            self.run_timed_events(dt);
+
             let ch = self.get_char();
 
-            if ch == b'q' as i32 {
+            if ch == nc_cs::ERR {
+                // timeout
+                continue;
+            } else if ch == b'q' as i32 {
                 return GuiRet::Break;
             } else if ch == b'\t' as i32 {
                 return GuiRet::Switch;
@@ -163,8 +211,6 @@ impl<'gui> HexGui<'gui> {
             if reset_overlay {
                 self.overlay = Overlay::NoOverlay;
             }
-
-            self.draw();
         }
     }
 

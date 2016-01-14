@@ -1,3 +1,5 @@
+#![feature(time2)]
+
 extern crate libc;
 extern crate ncurses;
 
@@ -15,6 +17,9 @@ use std::io::Read;
 use std::path::Path;
 
 use gui::Gui;
+use parser::elf;
+
+use ncurses as nc;
 
 fn main() {
     let args : Vec<OsString> = args_os().collect();
@@ -32,7 +37,25 @@ fn main() {
         }
     };
 
-    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap());
+    nc::initscr();
+    nc::keypad( nc::stdscr, true );
+    nc::noecho();
+    nc::curs_set( nc::CURSOR_VISIBILITY::CURSOR_INVISIBLE );
+
+    colors::init_colors();
+
+    let mut scr_x = 0;
+    let mut scr_y = 0;
+    nc::getmaxyx(nc::stdscr, &mut scr_y, &mut scr_x);
+
+    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap(),
+                                   scr_x, scr_y, 0, 0);
+    if let elf::ParseResult::ParseOK(elf_header) = elf::parse_elf_header(path) {
+        let program_headers = elf::parse_program_headers(&elf_header, &contents);
+        let section_headers = elf::parse_section_headers(&elf_header, &contents);
+        gui.init_elf_gui(elf_header, program_headers, section_headers);
+    }
+
     gui.mainloop();
 
     /*

@@ -149,6 +149,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_info_line();
             true
         }
 
@@ -174,6 +175,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_info_line();
             true
         }
 
@@ -186,6 +188,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_info_line();
             true
         }
 
@@ -217,6 +220,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_info_line();
             true
         }
 
@@ -230,9 +234,17 @@ impl<'grid> HexGrid<'grid> {
         }
     }
 
-    fn update_ascii_view(&self) {
+    pub fn update_ascii_view(&self) {
         let gui : &mut HexGui = unsafe { &mut *self.gui };
         gui.get_ascii_view().move_cursor(self.get_byte_idx());
+        gui.get_info_line().set_text(format!("{} - {}: {}",
+                                             self.path,
+                                             self.get_row(),
+                                             self.get_column()).into_bytes().borrow());
+    }
+
+    pub fn update_info_line(&self) {
+        let gui : &mut HexGui = unsafe { &mut *self.gui };
         gui.get_info_line().set_text(format!("{} - {}: {}",
                                              self.path,
                                              self.get_row(),
@@ -336,5 +348,6 @@ impl<'grid> HexGrid<'grid> {
             else { self.cursor_y - self.height / 2 };
 
         self.update_ascii_view();
+        self.update_info_line();
     }
 }
