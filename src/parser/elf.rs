@@ -2,7 +2,6 @@
 /// man page.
 
 use std::borrow::Borrow;
-use std::clone::Clone;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::Error;
@@ -13,10 +12,10 @@ use std::path::Path;
 // Specification of ELF format
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Class { Bit32, Bit64 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Endianness { LittleEndian, BigEndian }
 
 #[derive(Debug)]
@@ -239,7 +238,7 @@ pub struct SectionHeader64 {
     pub entsize: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum SectionHeaderType {
     /// This marks the section header as inactive. It does not have an
     /// associated section. Other members of the section header have undefined
@@ -384,7 +383,7 @@ pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
     // Skipping offset 8, 9
 
     let obj_type =
-        match read_u16(endianness.clone(), &contents[ 0x10 .. ]) {
+        match read_u16(endianness, &contents[ 0x10 .. ]) {
             1 => ObjType::Relocatable,
             2 => ObjType::Executable,
             3 => ObjType::Shared,
@@ -393,7 +392,7 @@ pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
         };
 
     let isa =
-        match read_u16(endianness.clone(), &contents[ 0x12 .. ]) {
+        match read_u16(endianness, &contents[ 0x12 .. ]) {
             0x00 => ISA::NA,
             0x02 => ISA::SPARC,
             0x03 => ISA::X86,
@@ -412,100 +411,100 @@ pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
     let entry_addr =
         match class {
             Class::Bit32 => {
-                read_u32(endianness.clone(), &contents[ 0x18 .. ]) as u64
+                read_u32(endianness, &contents[ 0x18 .. ]) as u64
             },
             Class::Bit64 => {
-                read_u64(endianness.clone(), &contents[ 0x18 .. ])
+                read_u64(endianness, &contents[ 0x18 .. ])
             }
         };
 
     let phoff =
         match class {
             Class::Bit32 => {
-                read_u32(endianness.clone(), &contents[ 0x1C .. ]) as u64
+                read_u32(endianness, &contents[ 0x1C .. ]) as u64
             },
             Class::Bit64 => {
-                read_u64(endianness.clone(), &contents[ 0x20 .. ])
+                read_u64(endianness, &contents[ 0x20 .. ])
             }
         };
 
     let shoff =
         match class {
             Class::Bit32 => {
-                read_u32(endianness.clone(), &contents[ 0x20 .. ]) as u64
+                read_u32(endianness, &contents[ 0x20 .. ]) as u64
             },
             Class::Bit64 => {
-                read_u64(endianness.clone(), &contents[ 0x28 .. ])
+                read_u64(endianness, &contents[ 0x28 .. ])
             }
         };
 
     let flags =
         match class {
             Class::Bit32 => {
-                read_u32(endianness.clone(), &contents[ 0x24 .. ])
+                read_u32(endianness, &contents[ 0x24 .. ])
             },
             Class::Bit64 => {
-                read_u32(endianness.clone(), &contents[ 0x30 .. ])
+                read_u32(endianness, &contents[ 0x30 .. ])
             }
         };
 
     let ehsize =
         match class {
             Class::Bit32 => {
-                read_u16(endianness.clone(), &contents[ 0x28 .. ])
+                read_u16(endianness, &contents[ 0x28 .. ])
             },
             Class::Bit64 => {
-                read_u16(endianness.clone(), &contents[ 0x34 .. ])
+                read_u16(endianness, &contents[ 0x34 .. ])
             }
         };
 
     let phentsize =
         match class {
             Class::Bit32 => {
-                read_u16(endianness.clone(), &contents[ 0x2A .. ])
+                read_u16(endianness, &contents[ 0x2A .. ])
             },
             Class::Bit64 => {
-                read_u16(endianness.clone(), &contents[ 0x36 .. ])
+                read_u16(endianness, &contents[ 0x36 .. ])
             }
         };
 
     let phnum =
         match class {
             Class::Bit32 => {
-                read_u16(endianness.clone(), &contents[ 0x2C .. ])
+                read_u16(endianness, &contents[ 0x2C .. ])
             },
             Class::Bit64 => {
-                read_u16(endianness.clone(), &contents[ 0x38 .. ])
+                read_u16(endianness, &contents[ 0x38 .. ])
             }
         };
 
     let shentsize =
         match class {
             Class::Bit32 => {
-                read_u16(endianness.clone(), &contents[ 0x2E .. ])
+                read_u16(endianness, &contents[ 0x2E .. ])
             },
             Class::Bit64 => {
-                read_u16(endianness.clone(), &contents[ 0x3A .. ])
+                read_u16(endianness, &contents[ 0x3A .. ])
             }
         };
 
     let shnum =
         match class {
             Class::Bit32 => {
-                read_u16(endianness.clone(), &contents[ 0x30 .. ])
+                read_u16(endianness, &contents[ 0x30 .. ])
             },
             Class::Bit64 => {
-                read_u16(endianness.clone(), &contents[ 0x3C .. ])
+                read_u16(endianness, &contents[ 0x3C .. ])
             }
         };
 
     let shstrndx =
         match class {
             Class::Bit32 => {
-                read_u16(endianness.clone(), &contents[ 0x32 .. ])
+                read_u16(endianness, &contents[ 0x32 .. ])
             },
             Class::Bit64 => {
-                read_u16(endianness.clone(), &contents[ 0x3E .. ])
+                read_u16(endianness, &contents[ 0x3E .. ])
             }
         };
 
@@ -533,8 +532,8 @@ pub fn parse_program_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Pr
     let pgm_header_size      = elf_header.phentsize as usize;
     let pgm_headers_start_at = elf_header.phoff as usize;
 
-    let class                = elf_header.class.clone();
-    let endianness           = elf_header.endianness.clone();
+    let class                = elf_header.class;
+    let endianness           = elf_header.endianness;
 
     let mut ret = Vec::new();
 
@@ -545,10 +544,10 @@ pub fn parse_program_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Pr
         let header = match class {
             Class::Bit32 =>
                 ProgramHeader::ProgramHeader32(
-                    parse_program_header_32(endianness.clone(), header_bits)),
+                    parse_program_header_32(endianness, header_bits)),
             Class::Bit64 =>
                 ProgramHeader::ProgramHeader64(
-                    parse_program_header_64(endianness.clone(), header_bits)),
+                    parse_program_header_64(endianness, header_bits)),
         };
 
         ret.push(header);
@@ -558,14 +557,14 @@ pub fn parse_program_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Pr
 }
 
 fn parse_program_header_32(endianness : Endianness, contents: &[u8]) -> ProgramHeader32 {
-    let ty     = read_u32(endianness.clone(),  contents);
-    let offset = read_u32(endianness.clone(), &contents[  4 .. ]);
-    let vaddr  = read_u32(endianness.clone(), &contents[  8 .. ]);
-    let paddr  = read_u32(endianness.clone(), &contents[ 12 .. ]);
-    let filesz = read_u32(endianness.clone(), &contents[ 16 .. ]);
-    let memsz  = read_u32(endianness.clone(), &contents[ 20 .. ]);
-    let flags  = read_u32(endianness.clone(), &contents[ 24 .. ]);
-    let align  = read_u32(endianness.clone(), &contents[ 30 .. ]);
+    let ty     = read_u32(endianness,  contents);
+    let offset = read_u32(endianness, &contents[  4 .. ]);
+    let vaddr  = read_u32(endianness, &contents[  8 .. ]);
+    let paddr  = read_u32(endianness, &contents[ 12 .. ]);
+    let filesz = read_u32(endianness, &contents[ 16 .. ]);
+    let memsz  = read_u32(endianness, &contents[ 20 .. ]);
+    let flags  = read_u32(endianness, &contents[ 24 .. ]);
+    let align  = read_u32(endianness, &contents[ 30 .. ]);
 
     ProgramHeader32 {
         ty: parse_program_header_ty(ty),
@@ -580,14 +579,14 @@ fn parse_program_header_32(endianness : Endianness, contents: &[u8]) -> ProgramH
 }
 
 fn parse_program_header_64(endianness : Endianness, contents: &[u8]) -> ProgramHeader64 {
-    let ty     = read_u32(endianness.clone(),  contents);
-    let flags  = read_u32(endianness.clone(), &contents[  4 .. ]);
-    let offset = read_u64(endianness.clone(), &contents[  8 .. ]);
-    let vaddr  = read_u64(endianness.clone(), &contents[ 16 .. ]);
-    let paddr  = read_u64(endianness.clone(), &contents[ 24 .. ]);
-    let filesz = read_u64(endianness.clone(), &contents[ 32 .. ]);
-    let memsz  = read_u64(endianness.clone(), &contents[ 40 .. ]);
-    let align  = read_u64(endianness.clone(), &contents[ 48 .. ]);
+    let ty     = read_u32(endianness,  contents);
+    let flags  = read_u32(endianness, &contents[  4 .. ]);
+    let offset = read_u64(endianness, &contents[  8 .. ]);
+    let vaddr  = read_u64(endianness, &contents[ 16 .. ]);
+    let paddr  = read_u64(endianness, &contents[ 24 .. ]);
+    let filesz = read_u64(endianness, &contents[ 32 .. ]);
+    let memsz  = read_u64(endianness, &contents[ 40 .. ]);
+    let align  = read_u64(endianness, &contents[ 48 .. ]);
 
     ProgramHeader64 {
         ty: parse_program_header_ty(ty),
@@ -623,8 +622,8 @@ pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Se
     let section_header_size = elf_header.shentsize as usize;
     let headers_start_at    = elf_header.shoff as usize;
 
-    let class               = elf_header.class.clone();
-    let endianness          = elf_header.endianness.clone();
+    let class               = elf_header.class;
+    let endianness          = elf_header.endianness;
 
     let mut ret = Vec::new();
 
@@ -635,10 +634,10 @@ pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Se
         let header = match class {
             Class::Bit32 =>
                 SectionHeader::SectionHeader32(
-                    parse_section_header_32(endianness.clone(), header_bits)),
+                    parse_section_header_32(endianness, header_bits)),
             Class::Bit64 =>
                 SectionHeader::SectionHeader64(
-                    parse_section_header_64(endianness.clone(), header_bits))
+                    parse_section_header_64(endianness, header_bits))
         };
 
         ret.push(header);
@@ -649,22 +648,22 @@ pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Se
 
 fn header_ty(h : &SectionHeader) -> SectionHeaderType {
     match *h {
-        SectionHeader::SectionHeader32(ref h) => h.ty.clone(),
-        SectionHeader::SectionHeader64(ref h) => h.ty.clone(),
+        SectionHeader::SectionHeader32(ref h) => h.ty,
+        SectionHeader::SectionHeader64(ref h) => h.ty,
     }
 }
 
 fn parse_section_header_32(endianness : Endianness, contents : &[u8]) -> SectionHeader32 {
-    let name   = read_u32(endianness.clone(),  contents);
-    let ty     = read_u32(endianness.clone(), &contents[ 4 .. ]);
-    let flags  = read_u32(endianness.clone(), &contents[ 8 .. ]);
-    let addr   = read_u32(endianness.clone(), &contents[ 12 .. ]);
-    let offset = read_u32(endianness.clone(), &contents[ 16 .. ]);
-    let size   = read_u32(endianness.clone(), &contents[ 20 .. ]);
-    let link   = read_u32(endianness.clone(), &contents[ 24 .. ]);
-    let info   = read_u32(endianness.clone(), &contents[ 28 .. ]);
-    let addralign = read_u32(endianness.clone(), &contents[ 32 .. ]);
-    let entsize = read_u32(endianness.clone(), &contents[ 36 .. ]);
+    let name   = read_u32(endianness,  contents);
+    let ty     = read_u32(endianness, &contents[ 4 .. ]);
+    let flags  = read_u32(endianness, &contents[ 8 .. ]);
+    let addr   = read_u32(endianness, &contents[ 12 .. ]);
+    let offset = read_u32(endianness, &contents[ 16 .. ]);
+    let size   = read_u32(endianness, &contents[ 20 .. ]);
+    let link   = read_u32(endianness, &contents[ 24 .. ]);
+    let info   = read_u32(endianness, &contents[ 28 .. ]);
+    let addralign = read_u32(endianness, &contents[ 32 .. ]);
+    let entsize = read_u32(endianness, &contents[ 36 .. ]);
 
     SectionHeader32 {
         name: name,
@@ -681,16 +680,16 @@ fn parse_section_header_32(endianness : Endianness, contents : &[u8]) -> Section
 }
 
 fn parse_section_header_64(endianness : Endianness, contents : &[u8]) -> SectionHeader64 {
-    let name   = read_u32(endianness.clone(),  contents);
-    let ty     = read_u32(endianness.clone(), &contents[ 4 .. ]);
-    let flags  = read_u64(endianness.clone(), &contents[ 8 .. ]);
-    let addr   = read_u64(endianness.clone(), &contents[ 16 .. ]);
-    let offset = read_u64(endianness.clone(), &contents[ 24 .. ]);
-    let size   = read_u64(endianness.clone(), &contents[ 32 .. ]);
-    let link   = read_u32(endianness.clone(), &contents[ 40 .. ]);
-    let info   = read_u32(endianness.clone(), &contents[ 44 .. ]);
-    let addralign = read_u64(endianness.clone(), &contents[ 48 .. ]);
-    let entsize = read_u64(endianness.clone(), &contents[ 56 .. ]);
+    let name   = read_u32(endianness,  contents);
+    let ty     = read_u32(endianness, &contents[ 4 .. ]);
+    let flags  = read_u64(endianness, &contents[ 8 .. ]);
+    let addr   = read_u64(endianness, &contents[ 16 .. ]);
+    let offset = read_u64(endianness, &contents[ 24 .. ]);
+    let size   = read_u64(endianness, &contents[ 32 .. ]);
+    let link   = read_u32(endianness, &contents[ 40 .. ]);
+    let info   = read_u32(endianness, &contents[ 44 .. ]);
+    let addralign = read_u64(endianness, &contents[ 48 .. ]);
+    let entsize = read_u64(endianness, &contents[ 56 .. ]);
 
     SectionHeader64 {
         name: name,
@@ -749,12 +748,12 @@ fn read_u16(endianness : Endianness, from : &[u8]) -> u16 {
 fn read_u32(endianness : Endianness, from : &[u8]) -> u32 {
     match endianness {
         Endianness::LittleEndian => {
-            ((read_u16(endianness.clone(), &from[ 2 ..  ]) as u32) << 16)
-                | (read_u16(endianness.clone(), from) as u32)
+            ((read_u16(endianness, &from[ 2 ..  ]) as u32) << 16)
+                | (read_u16(endianness, from) as u32)
         },
         Endianness::BigEndian => {
-            ((read_u16(endianness.clone(), from) as u32) << 16)
-                | (read_u16(endianness.clone(), &from[ 2 .. ]) as u32)
+            ((read_u16(endianness, from) as u32) << 16)
+                | (read_u16(endianness, &from[ 2 .. ]) as u32)
         }
     }
 }
@@ -762,12 +761,12 @@ fn read_u32(endianness : Endianness, from : &[u8]) -> u32 {
 fn read_u64(endianness : Endianness, from : &[u8]) -> u64 {
     match endianness {
         Endianness::LittleEndian => {
-            ((read_u32(endianness.clone(), &from[ 4 .. ]) as u64) << 32)
-                | (read_u32(endianness.clone(), from) as u64)
+            ((read_u32(endianness, &from[ 4 .. ]) as u64) << 32)
+                | (read_u32(endianness, from) as u64)
         },
         Endianness::BigEndian => {
-            ((read_u32(endianness.clone(), from) as u64) << 32)
-                | (read_u32(endianness.clone(), &from[ 4 .. ]) as u64)
+            ((read_u32(endianness, from) as u64) << 32)
+                | (read_u32(endianness, &from[ 4 .. ]) as u64)
         }
     }
 }
