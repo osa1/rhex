@@ -29,11 +29,11 @@ pub enum ISA { NA, SPARC, X86, MIPS, PowerPC, ARM, SuperH, IA64, X86_64, AArch64
 
 #[derive(Debug)]
 pub struct ELFHeader {
-    class: Class,
-    endianness: Endianness,
-    abi: OsABI,
-    obj_type: ObjType,
-    isa: ISA,
+    pub class: Class,
+    pub endianness: Endianness,
+    pub abi: OsABI,
+    pub obj_type: ObjType,
+    pub isa: ISA,
 
     /// Virtual address to which the system first transfers control, thus
     /// starting the process. Zero if the file has no associated entry point.
