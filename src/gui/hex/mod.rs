@@ -144,9 +144,9 @@ impl<'gui> HexGui<'gui> {
 
     pub fn mainloop(&mut self) -> GuiRet {
         // Now that 1) we have timed events 2) I don't want to get into
-        // threading, I'm using timeouts here. We check for events with 0.1
+        // threading, I'm using timeouts here. We check for events with 0.5
         // seconds granularity.
-        nc::timeout(100);
+        nc::timeout(500);
 
         let mut now = Instant::now();
 
