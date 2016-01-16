@@ -176,12 +176,12 @@ impl<'gui> HexGui<'gui> {
                 Overlay::GotoOverlay(ref mut o) => {
                     match o.keypressed(ch) {
                         OverlayRet::Ret(offset) => {
-                            self.hex_grid.move_cursor(offset);
+                            self.hex_grid.move_cursor_offset(offset);
                             // self.overlay = Overlay::NoOverlay;
                             reset_overlay = true;
                         },
                         OverlayRet::GotoBeginning => {
-                            self.hex_grid.move_cursor(0);
+                            self.hex_grid.move_cursor_offset(0);
                             // self.overlay = Overlay::NoOverlay;
                             reset_overlay = true;
                         },
@@ -238,13 +238,13 @@ impl<'gui> HexGui<'gui> {
             let byte_idx = self.hex_grid.get_byte_idx() as usize;
             for &hl_offset in hls {
                 if hl_offset > byte_idx {
-                    self.hex_grid.move_cursor(hl_offset as i32);
+                    self.hex_grid.move_cursor_offset(hl_offset as i32);
                     return;
                 }
             }
             // We couldn't jump to a match, start from the beginning
             if let Some(&hl_offset) = hls.get(0) {
-                self.hex_grid.move_cursor(hl_offset as i32);
+                self.hex_grid.move_cursor_offset(hl_offset as i32);
             }
         }
 
@@ -253,13 +253,13 @@ impl<'gui> HexGui<'gui> {
             let byte_idx = self.hex_grid.get_byte_idx() as usize;
             for &hl_offset in hls.iter().rev() {
                 if hl_offset < byte_idx {
-                    self.hex_grid.move_cursor(hl_offset as i32);
+                    self.hex_grid.move_cursor_offset(hl_offset as i32);
                     return;
                 }
             }
             // We couldn't jump to a match, start from the beginning
             if let Some(&hl_offset) = hls.get(hls.len() - 1) {
-                self.hex_grid.move_cursor(hl_offset as i32);
+                self.hex_grid.move_cursor_offset(hl_offset as i32);
             }
         }
 

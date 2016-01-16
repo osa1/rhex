@@ -100,7 +100,7 @@ impl<'view> AsciiView<'view> {
         }
     }
 
-    pub fn move_cursor(&mut self, byte_idx : i32) {
+    pub fn move_cursor_offset(&mut self, byte_idx : i32) {
         let cursor_y = byte_idx / self.width;
         let cursor_x = byte_idx % self.width;
 

@@ -225,7 +225,39 @@ impl<'grid> HexGrid<'grid> {
         }
 
         else if key == b'G' as i32 {
-            self.move_cursor(self.data.len() as i32 - 1);
+            self.move_cursor_offset(self.data.len() as i32 - 1);
+            true
+        }
+
+        else if key == 4 {
+            // I don't understand how do modifiers work, but apparently this is C-d
+            let current_cursor = self.get_byte_idx();
+            let bytes_per_line = self.bytes_per_line();
+
+            let new_cursor = current_cursor + 10 * bytes_per_line;
+            let new_cursor = if new_cursor > (self.data.len() as i32) - 1 {
+                (self.data.len() as i32) - 1
+            } else {
+                new_cursor
+            };
+
+            self.move_cursor_offset(new_cursor);
+            true
+        }
+
+        else if key == 21 {
+            // C-u
+            let current_cursor = self.get_byte_idx();
+            let bytes_per_line = self.bytes_per_line();
+
+            let new_cursor = current_cursor - 10 * bytes_per_line;
+            let new_cursor = if new_cursor < 0 {
+                0
+            } else {
+                new_cursor
+            };
+
+            self.move_cursor_offset(new_cursor);
             true
         }
 
@@ -236,19 +268,21 @@ impl<'grid> HexGrid<'grid> {
 
     pub fn update_ascii_view(&self) {
         let gui : &mut HexGui = unsafe { &mut *self.gui };
-        gui.get_ascii_view().move_cursor(self.get_byte_idx());
-        gui.get_info_line().set_text(format!("{} - {}: {}",
+        gui.get_ascii_view().move_cursor_offset(self.get_byte_idx());
+        gui.get_info_line().set_text(format!("{} - {}: {} (scroll: {})",
                                              self.path,
                                              self.get_row(),
-                                             self.get_column()).into_bytes().borrow());
+                                             self.get_column(),
+                                             self.get_scroll()).into_bytes().borrow());
     }
 
     pub fn update_info_line(&self) {
         let gui : &mut HexGui = unsafe { &mut *self.gui };
-        gui.get_info_line().set_text(format!("{} - {}: {}",
+        gui.get_info_line().set_text(format!("{} - {}: {} (scroll: {})",
                                              self.path,
                                              self.get_row(),
-                                             self.get_column()).into_bytes().borrow());
+                                             self.get_column(),
+                                             self.get_scroll()).into_bytes().borrow());
     }
 
     pub fn draw(&self, hl: &Vec<usize>, hl_len: usize) {
@@ -337,15 +371,21 @@ impl<'grid> HexGrid<'grid> {
         }
     }
 
-    pub fn move_cursor(&mut self, byte_idx : i32) {
+    pub fn move_cursor_offset(&mut self, byte_idx : i32) {
         let byte_idx = cmp::min((self.data.len() - 1) as i32, byte_idx);
 
         let bpl = self.bytes_per_line();
         self.cursor_y = byte_idx / bpl;
         self.cursor_x = (byte_idx % bpl) * 3;
-        self.scroll   =
-            if self.cursor_y < self.height { 0 }
-            else { self.cursor_y - self.height / 2 };
+
+        let min_scroll = cmp::max(0, self.cursor_y - self.height + 3);
+        let max_scroll = cmp::max(0, self.cursor_y - 3);
+
+        if self.scroll > max_scroll {
+            self.scroll = max_scroll;
+        } else if self.scroll < min_scroll {
+            self.scroll = min_scroll;
+        }
 
         self.update_ascii_view();
         self.update_info_line();
