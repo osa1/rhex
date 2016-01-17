@@ -160,7 +160,7 @@ impl<'grid> HexGrid<'grid> {
 
             if self.cursor_y < self.scroll + self.height - 3 && self.cursor_y < max_y {
                 self.move_next_line();
-            } else {
+            } else if self.cursor_y < max_y {
                 // We want to scroll, but is there a text to show? Otherwise we
                 // just move cursor down.
                 if self.scroll + self.height <= max_y {
@@ -169,7 +169,7 @@ impl<'grid> HexGrid<'grid> {
                     // We move the cursor too, because it's not relative to the
                     // current scroll
                     self.cursor_y += 1;
-                } else if self.cursor_y < max_y {
+                } else {
                     // We can't scroll but there's a line that we can move to
                     self.move_next_line();
                 }
