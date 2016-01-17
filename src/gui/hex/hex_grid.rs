@@ -57,7 +57,7 @@ impl<'grid> HexGrid<'grid> {
     }
 
     /// How many bytes we can show in a line?
-    fn bytes_per_line(&self) -> i32 {
+    pub fn bytes_per_line(&self) -> i32 {
         let bytes = self.width / 3;
 
         // Can we fit one more column?
@@ -149,6 +149,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_lines();
             self.update_info_line();
             true
         }
@@ -175,6 +176,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_lines();
             self.update_info_line();
             true
         }
@@ -188,6 +190,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_lines();
             self.update_info_line();
             true
         }
@@ -220,6 +223,7 @@ impl<'grid> HexGrid<'grid> {
             }
 
             self.update_ascii_view();
+            self.update_lines();
             self.update_info_line();
             true
         }
@@ -274,6 +278,11 @@ impl<'grid> HexGrid<'grid> {
                                              self.get_row(),
                                              self.get_column(),
                                              self.get_scroll()).into_bytes().borrow());
+    }
+
+    pub fn update_lines(&self) {
+        let gui : &mut HexGui = unsafe { &mut *self.gui };
+        gui.get_lines().move_cursor_offset(self.get_byte_idx());
     }
 
     pub fn update_info_line(&self) {
@@ -388,6 +397,7 @@ impl<'grid> HexGrid<'grid> {
         }
 
         self.update_ascii_view();
+        self.update_lines();
         self.update_info_line();
     }
 }

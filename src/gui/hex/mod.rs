@@ -2,12 +2,14 @@ mod ascii_view;
 mod goto;
 mod hex_grid;
 mod info_line;
+mod lines;
 mod search;
 
 use self::ascii_view::AsciiView;
 use self::goto::{GotoOverlay, OverlayRet};
 use self::hex_grid::HexGrid;
 use self::info_line::InfoLine;
+use self::lines::Lines;
 use self::search::{SearchOverlay, SearchRet};
 
 use gui::GuiRet;
@@ -25,6 +27,7 @@ use ncurses::constants as nc_cs;
 /// ncurses initialization and finalization.
 pub struct HexGui<'gui> {
     hex_grid: HexGrid<'gui>,
+    lines: Lines,
     ascii_view: AsciiView<'gui>,
     info_line: InfoLine,
     overlay: Overlay<'gui>,
@@ -52,24 +55,39 @@ enum TimedEvent {
 impl<'gui> HexGui<'gui> {
     pub fn new(contents: &'gui Vec<u8>, path : &'gui str,
                width : i32, height : i32, pos_x : i32, pos_y : i32) -> HexGui<'gui> {
+        // Calculate cols needed for showing the addresses
+        let max_address = contents.len();
+        let hex_digits_needed = (max_address as f32).log(16.0f32) as i32;
+        let addr_len = hex_digits_needed + 2; // take 0x prefix into account
+
+        let grid_width = width - addr_len - 2;
+
         // Layout: We leave 2 spaces between hex view and ascii view. Every byte
         // takes 3 characters in hex view and 1 character in ascii view. So we
         // have this 3/1 ratio.
 
-        let unit_column = width / 4;
+        let unit_column = grid_width / 4;
 
-        let mut hex_grid = HexGrid::new( unit_column * 3, height - 1, 0, 0, contents,
+        let mut hex_grid = HexGrid::new( unit_column * 3, height - 1,
+                                         addr_len + 2, 0,
+                                         contents,
                                          path );
 
-        let ascii_view = AsciiView::new( unit_column, height - 1, unit_column * 3 + 1, 0,
+        let lines = Lines::new( hex_grid.bytes_per_line(),
+                                contents.len() as i32,
+                                pos_x, pos_y, addr_len as i32, height );
+
+        let ascii_view = AsciiView::new( unit_column, height - 1,
+                                         unit_column * 3 + 1 + addr_len + 2,
+                                         0,
                                          contents );
 
-
-        let info_line = InfoLine::new( unit_column * 4, 0, height - 1,
+        let info_line = InfoLine::new( width, 0, height - 1,
                                        format!("{} - 0: 0", path).as_bytes() );
 
         HexGui {
             hex_grid: hex_grid,
+            lines: lines,
             ascii_view: ascii_view,
             info_line: info_line,
             overlay: Overlay::NoOverlay,
@@ -91,6 +109,10 @@ impl<'gui> HexGui<'gui> {
         &mut self.hex_grid
     }
 
+    pub fn get_lines(&mut self) -> &mut Lines {
+        &mut self.lines
+    }
+
     pub fn get_ascii_view(&mut self) -> &mut AsciiView<'gui> {
         &mut self.ascii_view
     }
@@ -102,6 +124,7 @@ impl<'gui> HexGui<'gui> {
     pub fn draw(&self) {
         nc::clear();
         self.hex_grid.draw(&self.highlight, self.highlight_len);
+        self.lines.draw();
         self.ascii_view.draw(&self.highlight, self.highlight_len);
         self.info_line.draw();
         nc::refresh();
@@ -227,6 +250,7 @@ impl<'gui> HexGui<'gui> {
             let next_ch = self.get_char();
             if next_ch == b'z' as i32 {
                 self.hex_grid.try_center_scroll();
+                self.lines.set_scroll(self.hex_grid.get_scroll());
                 self.ascii_view.set_scroll(self.hex_grid.get_scroll());
             } else {
                 // ignore
