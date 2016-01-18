@@ -1,3 +1,6 @@
+// TODO: This has too much repetition. We should at least define generic
+// renderers for field types, e.g. all u64 fields should use same renderer.
+
 use std::borrow::Borrow;
 
 use parser::elf;
@@ -132,7 +135,7 @@ impl Field for ElfHdrField_Endianness {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Generate field vector
+// ABI
 
 struct ElfHdrField_ABI {
     value : elf::OsABI,
@@ -154,6 +157,94 @@ impl Field for ElfHdrField_ABI {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Object type
+
+struct ElfHdrField_ObjType {
+    value : elf::ObjType,
+}
+
+impl Field for ElfHdrField_ObjType {
+    mk_boring_fns!(14, 3);
+
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
+        let obj_type_str = "Object type:";
+
+        nc::mvaddstr(pos_y, pos_x, obj_type_str);
+
+        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
+            let obj_type_val_str = format!("{:?}", self.value);
+            nc::mvaddstr(pos_y, pos_x + obj_type_str.len() as i32 + 2, obj_type_val_str.borrow());
+        });
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ISA
+
+struct ElfHdrField_ISA {
+    value : elf::ISA,
+}
+
+impl Field for ElfHdrField_ISA {
+    mk_boring_fns!(14, 4);
+
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
+        let isa_str = "ISA:";
+
+        nc::mvaddstr(pos_y, pos_x, isa_str);
+
+        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
+            let isa_val_str = format!("{:?}", self.value);
+            nc::mvaddstr(pos_y, pos_x + isa_str.len() as i32 + 2, isa_val_str.borrow());
+        });
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Entry address
+
+struct ElfHdrField_EntryAddr {
+    value : u64,
+}
+
+impl Field for ElfHdrField_EntryAddr {
+    mk_boring_fns!(14, 5);
+
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
+        let entry_addr_str = "Entry address:";
+
+        nc::mvaddstr(pos_y, pos_x, entry_addr_str);
+
+        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
+            let entry_addr_val_str = format!("0x{:x}", self.value);
+            nc::mvaddstr(pos_y, pos_x + entry_addr_str.len() as i32 + 2, entry_addr_val_str.borrow());
+        });
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Program header offset
+
+struct ElfHdrField_Phoff {
+    value : u64,
+}
+
+impl Field for ElfHdrField_Phoff {
+    mk_boring_fns!(14, 6);
+
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
+        let phoff_str = "Program header offset:";
+
+        nc::mvaddstr(pos_y, pos_x, phoff_str);
+
+        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
+            let phoff_val_str = format!("0x{:x}", self.value);
+            nc::mvaddstr(pos_y, pos_x + phoff_str.len() as i32 + 2, phoff_val_str.borrow());
+        });
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Generate field vector
 
 pub fn mk_elf_hdr_fields(hdr : &elf::ELFHeader) -> Vec<Box<Field>> {
@@ -161,5 +252,9 @@ pub fn mk_elf_hdr_fields(hdr : &elf::ELFHeader) -> Vec<Box<Field>> {
         Box::new(ElfHdrField_Class { value: hdr.class }),
         Box::new(ElfHdrField_Endianness { value: hdr.endianness }),
         Box::new(ElfHdrField_ABI { value: hdr.abi }),
+        Box::new(ElfHdrField_ObjType { value: hdr.obj_type }),
+        Box::new(ElfHdrField_ISA { value: hdr.isa }),
+        Box::new(ElfHdrField_EntryAddr { value: hdr.entry_addr }),
+        Box::new(ElfHdrField_Phoff { value: hdr.phoff }),
     ]
 }

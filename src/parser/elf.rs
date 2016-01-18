@@ -21,10 +21,10 @@ pub enum Endianness { LittleEndian, BigEndian }
 #[derive(Debug, Clone, Copy)]
 pub enum OsABI { SystemV, HPUX, NetBSD, Linux, Solaris, AIX, IRIX, FreeBSD, OpenBSD, OpenVMS }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ObjType { Relocatable, Executable, Shared, Core }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ISA { NA, SPARC, X86, MIPS, PowerPC, ARM, SuperH, IA64, X86_64, AArch64 }
 
 #[derive(Debug)]
