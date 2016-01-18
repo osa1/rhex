@@ -18,7 +18,7 @@ pub enum Class { Bit32, Bit64 }
 #[derive(Debug, Clone, Copy)]
 pub enum Endianness { LittleEndian, BigEndian }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum OsABI { SystemV, HPUX, NetBSD, Linux, Solaris, AIX, IRIX, FreeBSD, OpenBSD, OpenVMS }
 
 #[derive(Debug)]
