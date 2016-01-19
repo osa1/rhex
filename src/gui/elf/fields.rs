@@ -2,6 +2,7 @@
 // renderers for field types, e.g. all u64 fields should use same renderer.
 
 use std::borrow::Borrow;
+use std::fmt::LowerHex;
 
 use parser::elf;
 
@@ -81,6 +82,46 @@ macro_rules! mk_boring_fns {
 //
 // TODO: Check the optimized LLVM IR. (I don't think there's a way to do this
 // using Cargo at the moment)
+
+////////////////////////////////////////////////////////////////////////////////
+// Some generic field structs for repeatedly-used field types
+
+struct ElfHdrField_hex<T : LowerHex> {
+    value : T,
+    title : String,
+
+    num_fields : usize,
+    current_field : usize,
+}
+
+impl<T : LowerHex> Field for ElfHdrField_hex<T> {
+    fn get_idx(&self) -> usize { self.current_field }
+
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
+        nc::mvaddstr(pos_y, pos_x, self.title.borrow());
+
+        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
+            let val_str = format!("0x{:x}", self.value);
+            nc::mvaddstr(pos_y, pos_x + self.title.len() as i32 + 2, val_str.borrow());
+        });
+    }
+
+    fn next(&self) -> FieldRet {
+        if self.current_field == self.num_fields - 1 {
+            FieldRet::Next
+        } else {
+            FieldRet::Field(self.current_field + 1)
+        }
+    }
+
+    fn prev(&self) -> FieldRet {
+        if self.current_field == 0 {
+            FieldRet::Prev
+        } else {
+            FieldRet::Field(self.current_field - 1)
+        }
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Class
@@ -201,50 +242,6 @@ impl Field for ElfHdrField_ISA {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Entry address
-
-struct ElfHdrField_EntryAddr {
-    value : u64,
-}
-
-impl Field for ElfHdrField_EntryAddr {
-    mk_boring_fns!(14, 5);
-
-    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
-        let entry_addr_str = "Entry address:";
-
-        nc::mvaddstr(pos_y, pos_x, entry_addr_str);
-
-        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
-            let entry_addr_val_str = format!("0x{:x}", self.value);
-            nc::mvaddstr(pos_y, pos_x + entry_addr_str.len() as i32 + 2, entry_addr_val_str.borrow());
-        });
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Program header offset
-
-struct ElfHdrField_Phoff {
-    value : u64,
-}
-
-impl Field for ElfHdrField_Phoff {
-    mk_boring_fns!(14, 6);
-
-    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
-        let phoff_str = "Program header offset:";
-
-        nc::mvaddstr(pos_y, pos_x, phoff_str);
-
-        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
-            let phoff_val_str = format!("0x{:x}", self.value);
-            nc::mvaddstr(pos_y, pos_x + phoff_str.len() as i32 + 2, phoff_val_str.borrow());
-        });
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Generate field vector
 
 pub fn mk_elf_hdr_fields(hdr : &elf::ELFHeader) -> Vec<Box<Field>> {
@@ -254,7 +251,65 @@ pub fn mk_elf_hdr_fields(hdr : &elf::ELFHeader) -> Vec<Box<Field>> {
         Box::new(ElfHdrField_ABI { value: hdr.abi }),
         Box::new(ElfHdrField_ObjType { value: hdr.obj_type }),
         Box::new(ElfHdrField_ISA { value: hdr.isa }),
-        Box::new(ElfHdrField_EntryAddr { value: hdr.entry_addr }),
-        Box::new(ElfHdrField_Phoff { value: hdr.phoff }),
+        Box::new(ElfHdrField_hex::<u64> {
+            value: hdr.entry_addr,
+            title: "Entry address:".to_string(),
+            num_fields: 15,
+            current_field: 5,
+        }),
+        Box::new(ElfHdrField_hex::<u64> {
+            value: hdr.phoff,
+            title: "Program header offset:".to_string(),
+            num_fields: 15,
+            current_field: 6,
+        }),
+        Box::new(ElfHdrField_hex::<u64> {
+            value: hdr.shoff,
+            title: "Section header offset:".to_string(),
+            num_fields: 15,
+            current_field: 7,
+        }),
+        Box::new(ElfHdrField_hex::<u32> {
+            value: hdr.flags,
+            title: "Flags:".to_string(),
+            num_fields: 15,
+            current_field: 8,
+        }),
+        Box::new(ElfHdrField_hex::<u16> {
+            value: hdr.ehsize,
+            title: "ELF header size:".to_string(),
+            num_fields: 15,
+            current_field: 9,
+        }),
+        Box::new(ElfHdrField_hex::<u16> {
+            value: hdr.phentsize,
+            title: "Program header entry size:".to_string(),
+            num_fields: 15,
+            current_field: 10,
+        }),
+        Box::new(ElfHdrField_hex::<u16> {
+            value: hdr.phnum,
+            title: "# of program headers:".to_string(),
+            num_fields: 15,
+            current_field: 11,
+        }),
+        Box::new(ElfHdrField_hex::<u16> {
+            value: hdr.shentsize,
+            title: "Section header entry size:".to_string(),
+            num_fields: 15,
+            current_field: 12,
+        }),
+        Box::new(ElfHdrField_hex::<u16> {
+            value: hdr.shnum,
+            title: "# of section headers".to_string(),
+            num_fields: 15,
+            current_field: 13,
+        }),
+        Box::new(ElfHdrField_hex::<u16> {
+            value: hdr.shnum,
+            title: "Section name string table idx:".to_string(),
+            num_fields: 15,
+            current_field: 14,
+        }),
     ]
 }
