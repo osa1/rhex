@@ -1,8 +1,12 @@
 mod fields;
+mod program_header;
+
+use std::borrow::Borrow;
 
 use colors::Color;
 use gui::GuiRet;
 use parser::elf;
+use utils::draw_box;
 
 use ncurses as nc;
 
@@ -10,9 +14,10 @@ pub struct ElfGui {
     elf_header : elf::ELFHeader,
     elf_header_fields : Vec<Box<fields::Field>>,
 
-    section_headers: Vec<elf::SectionHeader>,
+    section_headers : Vec<elf::SectionHeader>,
 
-    program_headers: Vec<elf::ProgramHeader>,
+    program_headers : Vec<elf::ProgramHeader>,
+    program_header_fields : Vec<program_header::ProgramHeader>,
 
     // layout related stuff
     width : i32,
@@ -54,6 +59,7 @@ impl ElfGui {
 
             section_headers: section_headers,
 
+            program_header_fields: program_header::mk_pgm_hdr_fields(&program_headers),
             program_headers: program_headers,
 
             width: width,
@@ -86,10 +92,30 @@ impl ElfGui {
     }
 
     pub fn draw(&self) {
-        // let top    = self.scroll;
-        // let bottom = top + self.height;
-
         self.draw_elf_header();
+
+        // Draw program headers
+
+        let header_height = self.elf_header_height();
+
+        let box_x = self.pos_x + 1;
+        let box_y = self.pos_y + header_height + 1;
+
+        let box_width = self.width - 2;
+        let box_height = self.program_header_fields[0].get_height();
+
+        let header_title = "Program header";
+
+        for (hdr_idx, pgm_hdr) in self.program_header_fields.iter().enumerate() {
+            let y = box_y + (box_height + 1) * (hdr_idx as i32);
+
+            draw_box(box_x, y, box_width, box_height, Some(header_title.borrow()));
+
+            // Draw program header fields
+            for (field_idx, field) in pgm_hdr.fields.iter().enumerate() {
+                field.draw(box_x + 1, y + 1 + field_idx as i32, box_width - 2, box_height - 2, false);
+            }
+        }
     }
 
     pub fn keypressed(&mut self, ch : i32) {
@@ -104,10 +130,10 @@ impl ElfGui {
                             next_cursor = Cursor::ElfHeader(field_idx);
                         },
                         fields::FieldRet::Next => {
-                            next_cursor = Cursor::ProgramHeader {
-                                phdr_idx: 0,
-                                phdr_field: 0,
-                            };
+                            // next_cursor = Cursor::ProgramHeader {
+                            //     phdr_idx: 0,
+                            //     phdr_field: 0,
+                            // };
                         }
                     }
                 },
@@ -130,10 +156,10 @@ impl ElfGui {
                             next_cursor = Cursor::ElfHeader(field_idx);
                         },
                         fields::FieldRet::Next => {
-                            next_cursor = Cursor::ProgramHeader {
-                                phdr_idx: 0,
-                                phdr_field: 0,
-                            };
+                            // next_cursor = Cursor::ProgramHeader {
+                            //     phdr_idx: 0,
+                            //     phdr_field: 0,
+                            // };
                         }
                     }
                 },
@@ -163,6 +189,10 @@ impl ElfGui {
                        self.height,
                        focus);
         }
+    }
+
+    fn elf_header_height(&self) -> i32 {
+        self.elf_header_fields.len() as i32
     }
 
     fn get_char(&self) -> i32 {

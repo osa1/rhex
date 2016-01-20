@@ -86,12 +86,12 @@ macro_rules! mk_boring_fns {
 ////////////////////////////////////////////////////////////////////////////////
 // Some generic field structs for repeatedly-used field types
 
-struct ElfHdrField_hex<T : LowerHex> {
-    value : T,
-    title : String,
+pub struct ElfHdrField_hex<T : LowerHex> {
+    pub value : T,
+    pub title : String,
 
-    num_fields : usize,
-    current_field : usize,
+    pub num_fields : usize,
+    pub current_field : usize,
 }
 
 impl<T : LowerHex> Field for ElfHdrField_hex<T> {
