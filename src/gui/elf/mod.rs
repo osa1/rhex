@@ -1,4 +1,4 @@
-mod fields;
+mod field;
 mod program_header;
 
 use std::borrow::Borrow;
@@ -12,7 +12,7 @@ use ncurses as nc;
 
 pub struct ElfGui {
     elf_header : elf::ELFHeader,
-    elf_header_fields : Vec<Box<fields::Field>>,
+    elf_header_fields : Vec<Box<field::Field>>,
 
     section_headers : Vec<elf::SectionHeader>,
 
@@ -36,12 +36,12 @@ enum Cursor {
 
     ProgramHeader {
         phdr_idx : usize,
-        phdr_field : usize
+        phdr_focused : bool,
     },
 
     SectionHeader {
         shdr_idx : usize,
-        shdr_field : usize
+        shdr_focused : bool,
     },
 }
 
@@ -54,7 +54,7 @@ impl ElfGui {
             // OMG this is ridiculous. This line needs to come first because in
             // the next line we move the header. It turns out rustc can't
             // reorder these for me.
-            elf_header_fields: fields::mk_elf_hdr_fields(&elf_header),
+            elf_header_fields: field::mk_elf_hdr_fields(&elf_header),
             elf_header: elf_header,
 
             section_headers: section_headers,
@@ -104,17 +104,16 @@ impl ElfGui {
         let box_width = self.width - 2;
         let box_height = self.program_header_fields[0].get_height();
 
-        let header_title = "Program header";
-
         for (hdr_idx, pgm_hdr) in self.program_header_fields.iter().enumerate() {
             let y = box_y + (box_height + 1) * (hdr_idx as i32);
 
-            draw_box(box_x, y, box_width, box_height, Some(header_title.borrow()));
+            let highlight = match self.cursor {
+                // TODO: How to wildcard unused fields?
+                Cursor::ProgramHeader { phdr_idx, phdr_focused } => phdr_idx == hdr_idx,
+                _ => false,
+            };
 
-            // Draw program header fields
-            for (field_idx, field) in pgm_hdr.fields.iter().enumerate() {
-                field.draw(box_x + 1, y + 1 + field_idx as i32, box_width - 2, box_height - 2, false);
-            }
+            pgm_hdr.draw(box_x, y, box_width, box_height, highlight);
         }
     }
 
@@ -125,22 +124,31 @@ impl ElfGui {
                 Cursor::ElfHeader(elf_header_cursor) => {
                     let field = &self.elf_header_fields[elf_header_cursor];
                     match field.prev() {
-                        fields::FieldRet::Prev => {},
-                        fields::FieldRet::Field(field_idx) => {
+                        field::FieldRet::Prev => {},
+                        field::FieldRet::Field(field_idx) => {
                             next_cursor = Cursor::ElfHeader(field_idx);
                         },
-                        fields::FieldRet::Next => {
-                            // next_cursor = Cursor::ProgramHeader {
-                            //     phdr_idx: 0,
-                            //     phdr_field: 0,
-                            // };
+                        field::FieldRet::Next => {
+                            next_cursor = Cursor::ProgramHeader {
+                                phdr_idx: 0,
+                                phdr_focused: false,
+                            };
+                        },
+                    }
+                },
+                Cursor::ProgramHeader { phdr_idx, phdr_focused } => {
+                    if !phdr_focused {
+                        if phdr_idx > 0 {
+                            next_cursor = Cursor::ProgramHeader {
+                                phdr_idx: phdr_idx - 1,
+                                phdr_focused: false,
+                            }
+                        } else {
+                            next_cursor = Cursor::ElfHeader(self.elf_header_fields.len() - 1);
                         }
                     }
                 },
-                Cursor::ProgramHeader { phdr_idx, phdr_field } => {
-
-                },
-                Cursor::SectionHeader { shdr_idx, shdr_field } => {
+                Cursor::SectionHeader { shdr_idx, shdr_focused } => {
 
                 },
             }
@@ -151,22 +159,27 @@ impl ElfGui {
                 Cursor::ElfHeader(elf_header_cursor) => {
                     let field = &self.elf_header_fields[elf_header_cursor];
                     match field.next() {
-                        fields::FieldRet::Prev => {},
-                        fields::FieldRet::Field(field_idx) => {
+                        field::FieldRet::Prev => {},
+                        field::FieldRet::Field(field_idx) => {
                             next_cursor = Cursor::ElfHeader(field_idx);
                         },
-                        fields::FieldRet::Next => {
-                            // next_cursor = Cursor::ProgramHeader {
-                            //     phdr_idx: 0,
-                            //     phdr_field: 0,
-                            // };
+                        field::FieldRet::Next => {
+                            next_cursor = Cursor::ProgramHeader {
+                                phdr_idx: 0,
+                                phdr_focused: false,
+                            };
                         }
                     }
                 },
-                Cursor::ProgramHeader { phdr_idx, phdr_field } => {
-
+                Cursor::ProgramHeader { phdr_idx, phdr_focused } => {
+                    if !phdr_focused && phdr_idx < self.program_headers.len() - 1 {
+                        next_cursor = Cursor::ProgramHeader {
+                            phdr_idx: phdr_idx + 1,
+                            phdr_focused: false,
+                        }
+                    }
                 },
-                Cursor::SectionHeader { shdr_idx, shdr_field } => {
+                Cursor::SectionHeader { shdr_idx, shdr_focused } => {
 
                 },
             }

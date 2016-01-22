@@ -5,6 +5,8 @@ pub enum Color {
     CursorFocus = 2,
     StatusBar = 3,
     Highlight = 4,
+
+    FrameFocus = 5,
 }
 
 pub fn init_colors() {
@@ -13,6 +15,7 @@ pub fn init_colors() {
     nc::init_pair(Color::CursorFocus   as i16, nc::COLOR_WHITE, nc::COLOR_GREEN);
     nc::init_pair(Color::StatusBar     as i16, nc::COLOR_WHITE, nc::COLOR_RED);
     nc::init_pair(Color::Highlight     as i16, nc::COLOR_BLACK, nc::COLOR_BLUE);
+    nc::init_pair(Color::FrameFocus    as i16, nc::COLOR_GREEN, nc::COLOR_BLACK);
 }
 
 impl Color {
