@@ -181,6 +181,14 @@ impl ElfGui {
                     };
                 }
             }
+
+            else if key == 10 || key == b'\n' as i32 {
+                self.program_header_fields[idx].focus();
+                self.cursor = Cursor::ProgramHeader {
+                    phdr_idx: idx,
+                    phdr_focused: true,
+                };
+            }
         }
     }
 

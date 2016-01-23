@@ -22,24 +22,44 @@ impl ProgramHeader {
         8
     }
 
-    pub fn keypressed(&mut self, ch : i32) -> ProgramHeaderRet {
+    pub fn focus(&mut self) {
+        self.has_focus = true;
+    }
+
+    pub fn keypressed(&mut self, key : i32) -> ProgramHeaderRet {
         if self.has_focus {
-            self.keypressed_focus(ch)
+            self.keypressed_focus(key)
         } else {
-            self.keypressed_no_focus(ch)
+            self.keypressed_no_focus(key)
         }
     }
 
-    fn keypressed_focus(&mut self, ch : i32) -> ProgramHeaderRet {
-        if ch == 27 {
+    fn keypressed_focus(&mut self, key : i32) -> ProgramHeaderRet {
+        if key == 27 {
             self.has_focus = false;
             ProgramHeaderRet::LostFocus
-        } else {
+        }
+
+        else if key == nc::KEY_UP || key == b'k' as i32 {
+            if self.cursor > 0 {
+                self.cursor -= 1;
+            }
+            ProgramHeaderRet::KeyHandled
+        }
+
+        else if key == nc::KEY_DOWN || key == b'j' as i32 {
+            if self.cursor < self.fields.len() - 1 {
+                self.cursor += 1;
+            }
+            ProgramHeaderRet::KeyHandled
+        }
+
+        else {
             ProgramHeaderRet::KeyHandled
         }
     }
 
-    fn keypressed_no_focus(&mut self, ch : i32) -> ProgramHeaderRet {
+    fn keypressed_no_focus(&mut self, key : i32) -> ProgramHeaderRet {
         ProgramHeaderRet::KeyIgnored
     }
 
@@ -47,18 +67,23 @@ impl ProgramHeader {
         // FIXME: Figure out how to export/import macros and use with_attr!
         // here.
 
-        if highlight {
+        if self.has_focus {
+            nc::attron(Color::FrameActive.attr());
+        } else if highlight {
             nc::attron(Color::FrameFocus.attr());
         }
 
         draw_box(pos_x, pos_y, width, height, Some(HEADER_TITLE));
 
-        if highlight {
+        if self.has_focus {
+            nc::attroff(Color::FrameActive.attr());
+        } else if highlight {
             nc::attroff(Color::FrameFocus.attr());
         }
 
         for (field_idx, field) in self.fields.iter().enumerate() {
-            field.draw(pos_x + 1, pos_y + 1 + field_idx as i32, width - 2, height - 2, false);
+            let field_focus = field_idx == self.cursor && self.has_focus;
+            field.draw(pos_x + 1, pos_y + 1 + field_idx as i32, width - 2, height - 2, field_focus);
         }
     }
 }
