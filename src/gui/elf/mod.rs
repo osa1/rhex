@@ -6,6 +6,7 @@ use std::borrow::Borrow;
 use colors::Color;
 use gui::GuiRet;
 use parser::elf;
+use self::program_header::{ProgramHeader, ProgramHeaderRet};
 use utils::draw_box;
 
 use ncurses as nc;
@@ -17,7 +18,7 @@ pub struct ElfGui {
     section_headers : Vec<elf::SectionHeader>,
 
     program_headers : Vec<elf::ProgramHeader>,
-    program_header_fields : Vec<program_header::ProgramHeader>,
+    program_header_fields : Vec<ProgramHeader>,
 
     // layout related stuff
     width : i32,
@@ -117,82 +118,77 @@ impl ElfGui {
         }
     }
 
-    pub fn keypressed(&mut self, ch : i32) {
-        let mut next_cursor = self.cursor;
-        if ch == nc::KEY_UP || ch == b'k' as i32 {
-            match self.cursor {
-                Cursor::ElfHeader(elf_header_cursor) => {
-                    let field = &self.elf_header_fields[elf_header_cursor];
-                    match field.prev() {
-                        field::FieldRet::Prev => {},
-                        field::FieldRet::Field(field_idx) => {
-                            next_cursor = Cursor::ElfHeader(field_idx);
-                        },
-                        field::FieldRet::Next => {
-                            next_cursor = Cursor::ProgramHeader {
-                                phdr_idx: 0,
-                                phdr_focused: false,
-                            };
-                        },
-                    }
-                },
-                Cursor::ProgramHeader { phdr_idx, phdr_focused } => {
-                    if !phdr_focused {
-                        if phdr_idx > 0 {
-                            next_cursor = Cursor::ProgramHeader {
-                                phdr_idx: phdr_idx - 1,
-                                phdr_focused: false,
-                            }
-                        } else {
-                            next_cursor = Cursor::ElfHeader(self.elf_header_fields.len() - 1);
-                        }
-                    }
-                },
-                Cursor::SectionHeader { shdr_idx, shdr_focused } => {
+    pub fn keypressed(&mut self, key : i32) {
+        match self.cursor {
+            Cursor::ElfHeader(idx) => {
+                self.handle_elf_header_keypress(key, idx);
+            },
+            Cursor::ProgramHeader { phdr_idx, phdr_focused } => {
+                self.handle_phdr_keypress(key, phdr_idx, phdr_focused);
+            },
+            Cursor::SectionHeader { shdr_idx, shdr_focused } => {},
+        }
+    }
 
-                },
+    fn handle_elf_header_keypress(&mut self, key : i32, idx : usize) {
+        if key == nc::KEY_UP || key == b'k' as i32 {
+            if idx > 0 {
+                self.cursor = Cursor::ElfHeader(idx - 1);
             }
         }
 
-        else if ch == nc::KEY_DOWN || ch == b'j' as i32 {
-            match self.cursor {
-                Cursor::ElfHeader(elf_header_cursor) => {
-                    let field = &self.elf_header_fields[elf_header_cursor];
-                    match field.next() {
-                        field::FieldRet::Prev => {},
-                        field::FieldRet::Field(field_idx) => {
-                            next_cursor = Cursor::ElfHeader(field_idx);
-                        },
-                        field::FieldRet::Next => {
-                            next_cursor = Cursor::ProgramHeader {
-                                phdr_idx: 0,
-                                phdr_focused: false,
-                            };
-                        }
-                    }
-                },
-                Cursor::ProgramHeader { phdr_idx, phdr_focused } => {
-                    if !phdr_focused && phdr_idx < self.program_headers.len() - 1 {
-                        next_cursor = Cursor::ProgramHeader {
-                            phdr_idx: phdr_idx + 1,
-                            phdr_focused: false,
-                        }
-                    }
-                },
-                Cursor::SectionHeader { shdr_idx, shdr_focused } => {
-
-                },
+        else if key == nc::KEY_DOWN || key == b'j' as i32 {
+            if idx < self.elf_header_fields.len() - 1 {
+                self.cursor = Cursor::ElfHeader(idx + 1);
+            } else if self.program_header_fields.len() > 0 {
+                self.cursor = Cursor::ProgramHeader {
+                    phdr_idx: 0,
+                    phdr_focused: false,
+                }
             }
         }
+    }
 
-        self.cursor = next_cursor;
+    fn handle_phdr_keypress(&mut self, key : i32, idx : usize, focused : bool) {
+        if focused {
+            match self.program_header_fields[idx].keypressed(key) {
+                ProgramHeaderRet::LostFocus => {
+                    self.cursor = Cursor::ProgramHeader {
+                        phdr_idx: idx,
+                        phdr_focused: false,
+                    };
+                }
+                ProgramHeaderRet::KeyHandled => {},
+                ProgramHeaderRet::KeyIgnored => {},
+            }
+        } else {
+            if key == nc::KEY_UP || key == b'k' as i32 {
+                if idx > 0 {
+                    self.cursor = Cursor::ProgramHeader {
+                        phdr_idx: idx - 1,
+                        phdr_focused: false,
+                    };
+                } else {
+                    self.cursor = Cursor::ElfHeader(self.elf_header_fields.len() - 1);
+                }
+            }
+
+            else if key == nc::KEY_DOWN || key == b'j' as i32 {
+                if idx < self.program_headers.len() - 1 {
+                    self.cursor = Cursor::ProgramHeader {
+                        phdr_idx: idx + 1,
+                        phdr_focused: false,
+                    };
+                }
+            }
+        }
     }
 
     fn draw_elf_header(&self) {
         // for now assume each field takes one row
         for (field_idx, field) in self.elf_header_fields.iter().enumerate() {
             let focus = match self.cursor {
-                Cursor::ElfHeader(idx) => field.get_idx() == idx,
+                Cursor::ElfHeader(idx) => field_idx == idx,
                 _ => false,
             };
 

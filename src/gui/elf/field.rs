@@ -10,22 +10,9 @@ use colors::Color;
 
 use ncurses as nc;
 
-pub enum FieldRet {
-    Prev, Field(usize), Next
-}
-
 pub trait Field {
-    /// Get cursor's value for this field.
-    fn get_idx(&self) -> usize;
-
     /// Render the field.
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool);
-
-    /// Get cursor value for the next field.
-    fn next(&self) -> FieldRet;
-
-    /// Get cursor value for the previous field.
-    fn prev(&self) -> FieldRet;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -44,45 +31,6 @@ macro_rules! with_attr {
     };
 }
 
-// It turns out Rust macros kinda suck. I can't evaluate expression in macro
-// expansion time, I can't match only integer literals (the book lists 10 things
-// that we can match, integer literals are not one of them) etc. so if I want to
-// define get_idx(), next() and prev() here using a macro, I'd have to add some
-// runtime overhead, by doing something like this:
-
-macro_rules! mk_boring_fns {
-    ( $last_field:expr, $current_field:expr ) => {
-
-        fn get_idx(&self) -> usize { $current_field }
-
-        fn next(&self) -> FieldRet {
-            if $current_field == $last_field {
-                FieldRet::Next
-            } else {
-                FieldRet::Field($current_field + 1)
-            }
-        }
-
-        fn prev(&self) -> FieldRet {
-            if $current_field == 0 {
-                FieldRet::Prev
-            } else {
-                FieldRet::Field($current_field - 1)
-            }
-        }
-
-    };
-}
-
-// The problem here is that prev() and next() methods have runtime comparisons
-// for no reason.
-//
-// However, I think the code generator should be smart enough to do some
-// evaluation here and reduce these expressions. So.. I ended up using this.
-//
-// TODO: Check the optimized LLVM IR. (I don't think there's a way to do this
-// using Cargo at the moment)
-
 ////////////////////////////////////////////////////////////////////////////////
 // Some generic field structs for repeatedly-used field types
 
@@ -95,8 +43,6 @@ pub struct ElfHdrField_hex<T : LowerHex> {
 }
 
 impl<T : LowerHex> Field for ElfHdrField_hex<T> {
-    fn get_idx(&self) -> usize { self.current_field }
-
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         nc::mvaddstr(pos_y, pos_x, self.title.borrow());
 
@@ -104,22 +50,6 @@ impl<T : LowerHex> Field for ElfHdrField_hex<T> {
             let val_str = format!("0x{:x}", self.value);
             nc::mvaddstr(pos_y, pos_x + self.title.len() as i32 + 2, val_str.borrow());
         });
-    }
-
-    fn next(&self) -> FieldRet {
-        if self.current_field == self.num_fields - 1 {
-            FieldRet::Next
-        } else {
-            FieldRet::Field(self.current_field + 1)
-        }
-    }
-
-    fn prev(&self) -> FieldRet {
-        if self.current_field == 0 {
-            FieldRet::Prev
-        } else {
-            FieldRet::Field(self.current_field - 1)
-        }
     }
 }
 
@@ -131,8 +61,6 @@ struct ElfHdrField_Class {
 }
 
 impl Field for ElfHdrField_Class {
-    mk_boring_fns!(14, 0);
-
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let class_str = "Class:";
 
@@ -157,8 +85,6 @@ struct ElfHdrField_Endianness {
 }
 
 impl Field for ElfHdrField_Endianness {
-    mk_boring_fns!(14, 1);
-
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let endianness_str = "Endianness:";
 
@@ -183,8 +109,6 @@ struct ElfHdrField_ABI {
 }
 
 impl Field for ElfHdrField_ABI {
-    mk_boring_fns!(14, 2);
-
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let abi_str = "ABI:";
 
@@ -205,8 +129,6 @@ struct ElfHdrField_ObjType {
 }
 
 impl Field for ElfHdrField_ObjType {
-    mk_boring_fns!(14, 3);
-
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let obj_type_str = "Object type:";
 
@@ -227,8 +149,6 @@ struct ElfHdrField_ISA {
 }
 
 impl Field for ElfHdrField_ISA {
-    mk_boring_fns!(14, 4);
-
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let isa_str = "ISA:";
 

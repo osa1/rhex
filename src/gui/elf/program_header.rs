@@ -12,7 +12,7 @@ pub struct ProgramHeader {
 }
 
 pub enum ProgramHeaderRet {
-    GainedFocus, LostFocus, KeyHandled, KeyIgnored,
+    LostFocus, KeyHandled, KeyIgnored,
 }
 
 static HEADER_TITLE : &'static str = "Program header";
@@ -35,17 +35,12 @@ impl ProgramHeader {
             self.has_focus = false;
             ProgramHeaderRet::LostFocus
         } else {
-            panic!("not implemented yet")
+            ProgramHeaderRet::KeyHandled
         }
     }
 
     fn keypressed_no_focus(&mut self, ch : i32) -> ProgramHeaderRet {
-        if ch == b'\n' as i32 {
-            self.has_focus = true;
-            ProgramHeaderRet::GainedFocus
-        } else {
-            ProgramHeaderRet::KeyIgnored
-        }
+        ProgramHeaderRet::KeyIgnored
     }
 
     pub fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, highlight : bool) {
