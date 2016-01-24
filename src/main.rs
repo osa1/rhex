@@ -1,4 +1,7 @@
+#![feature(alloc_system)]
 #![feature(time2)]
+
+extern crate alloc_system;
 
 extern crate libc;
 extern crate ncurses;
