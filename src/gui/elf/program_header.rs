@@ -19,7 +19,7 @@ static HEADER_TITLE : &'static str = "Program header";
 
 impl ProgramHeader {
     pub fn get_height(&self) -> i32 {
-        8
+        7
     }
 
     pub fn focus(&mut self) {
