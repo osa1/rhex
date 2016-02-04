@@ -164,6 +164,9 @@ pub enum ProgramHeaderType {
     /// GNU extension which is used by the Linux kernel to control the state of
     /// the stack via the flags set in the `flags` member.
     GNU_EH_FRAME,
+
+    // TODO: Document these
+    GNU_STACK, GNU_RELRO,
 }
 
 #[derive(Debug)]
@@ -573,6 +576,8 @@ fn parse_program_header_ty(ty : u32) -> ProgramHeaderType {
         6 => ProgramHeaderType::PHDR,
         7 => ProgramHeaderType::TLS,
         0x6474e550 => ProgramHeaderType::GNU_EH_FRAME,
+        0x6474e551 => ProgramHeaderType::GNU_STACK,
+        0x6474e552 => ProgramHeaderType::GNU_RELRO,
         0x60000000 ... 0x6fffffff => ProgramHeaderType::OS(ty),
         0x70000000 ... 0x7fffffff => ProgramHeaderType::PROC(ty),
         _ => panic!("parse_program_header_ty: Unknown program header type: 0x{0:X}", ty),
