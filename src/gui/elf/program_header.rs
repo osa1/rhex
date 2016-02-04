@@ -1,9 +1,52 @@
+use std::borrow::Borrow;
+
 use colors::Color;
 use gui::elf::field;
 use parser::elf;
 use utils::draw_box;
 
 use ncurses as nc;
+
+////////////////////////////////////////////////////////////////////////////////
+// Program header type field
+
+struct ProgramHeaderField {
+    value : elf::ProgramHeaderType,
+}
+
+impl field::Field for ProgramHeaderField {
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
+        let ty_str = "Header type:";
+
+        nc::mvaddstr(pos_y, pos_x, ty_str);
+
+        // TODO: use with_attr! here. (need to figure out how to export macros)
+
+        if focus {
+            nc::attron(nc::A_BOLD() | Color::CursorFocus.attr());
+        }
+
+        let val_str = match self.value {
+            elf::ProgramHeaderType::OS(u) => {
+                format!("Unknown (OS): 0x{:x}", u)
+            },
+            elf::ProgramHeaderType::PROC(u) => {
+                format!("Unknown (PROC): 0x{:x}", u)
+            },
+            other => {
+                format!("{:?}", other)
+            }
+        };
+
+        nc::mvaddstr(pos_y, pos_x + ty_str.len() as i32 + 2, val_str.borrow());
+
+        if focus {
+            nc::attroff(nc::A_BOLD() | Color::CursorFocus.attr());
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub struct ProgramHeader {
     fields : Vec<Box<field::Field>>,
@@ -19,7 +62,7 @@ static HEADER_TITLE : &'static str = "Program header";
 
 impl ProgramHeader {
     pub fn get_height(&self) -> i32 {
-        7
+        8
     }
 
     pub fn focus(&mut self) {
@@ -92,9 +135,11 @@ pub fn mk_pgm_hdr_fields(hdrs : &Vec<elf::ProgramHeader>) -> Vec<ProgramHeader> 
     let mut headers = Vec::with_capacity(hdrs.len());
 
     for hdr in hdrs {
-        let mut fields : Vec<Box<field::Field>> = Vec::with_capacity(8);
+        let mut fields : Vec<Box<field::Field>> = Vec::with_capacity(9);
 
-        // TODO: need a field for ProgramHeaderType
+        fields.push(Box::new(ProgramHeaderField {
+            value: hdr.ty,
+        }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u64> {
             value: hdr.offset,

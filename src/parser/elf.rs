@@ -111,7 +111,7 @@ pub struct ProgramHeader {
     pub align: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ProgramHeaderType {
     /// The array element is unused and the other members' values are undefined.
     /// This lets the program header have ignored entries.
