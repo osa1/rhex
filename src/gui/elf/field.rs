@@ -4,31 +4,14 @@
 use std::borrow::Borrow;
 use std::fmt::LowerHex;
 
-use parser::elf;
-
 use colors::Color;
+use parser::elf;
 
 use ncurses as nc;
 
 pub trait Field {
     /// Render the field.
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-macro_rules! with_attr {
-    ( $guard:expr, $attr_expr:expr, $body:expr ) => {
-        if $guard {
-            nc::attron($attr_expr);
-        }
-
-        $body;
-
-        if $guard {
-            nc::attroff($attr_expr);
-        }
-    };
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -20,29 +20,21 @@ impl field::Field for ProgramHeaderField {
 
         nc::mvaddstr(pos_y, pos_x, ty_str);
 
-        // TODO: use with_attr! here. (need to figure out how to export macros)
+        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
+            let val_str = match self.value {
+                elf::ProgramHeaderType::OS(u) => {
+                    format!("Unknown (OS): 0x{:x}", u)
+                },
+                elf::ProgramHeaderType::PROC(u) => {
+                    format!("Unknown (PROC): 0x{:x}", u)
+                },
+                other => {
+                    format!("{:?}", other)
+                }
+            };
 
-        if focus {
-            nc::attron(nc::A_BOLD() | Color::CursorFocus.attr());
-        }
-
-        let val_str = match self.value {
-            elf::ProgramHeaderType::OS(u) => {
-                format!("Unknown (OS): 0x{:x}", u)
-            },
-            elf::ProgramHeaderType::PROC(u) => {
-                format!("Unknown (PROC): 0x{:x}", u)
-            },
-            other => {
-                format!("{:?}", other)
-            }
-        };
-
-        nc::mvaddstr(pos_y, pos_x + ty_str.len() as i32 + 2, val_str.borrow());
-
-        if focus {
-            nc::attroff(nc::A_BOLD() | Color::CursorFocus.attr());
-        }
+            nc::mvaddstr(pos_y, pos_x + ty_str.len() as i32 + 2, val_str.borrow());
+        });
     }
 }
 
