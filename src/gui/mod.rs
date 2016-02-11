@@ -12,7 +12,7 @@ use ncurses as nc;
 
 pub struct Gui<'gui> {
     hex_gui : hex::HexGui<'gui>,
-    elf_gui : Option<ElfGui>,
+    elf_gui : Option<ElfGui<'gui>>,
     gui_mod : Mod,
 
     width : i32,
@@ -41,8 +41,8 @@ impl<'gui> Gui<'gui> {
 
     pub fn init_elf_gui(&mut self,
                         elf_header : ::parser::elf::ELFHeader,
-                        program_headers : Vec<::parser::elf::ProgramHeader>,
-                        section_headers : Vec<::parser::elf::SectionHeader>) {
+                        program_headers : Vec<::parser::elf::ProgramHeader<'gui>>,
+                        section_headers : Vec<::parser::elf::SectionHeader<'gui>>) {
         self.elf_gui = Some(ElfGui::new(elf_header, section_headers, program_headers,
                                         self.width, self.height, self.pos_x, self.pos_y));
     }

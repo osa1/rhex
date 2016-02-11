@@ -11,13 +11,13 @@ use utils::draw_box;
 
 use ncurses as nc;
 
-pub struct ElfGui {
+pub struct ElfGui<'gui> {
     elf_header : elf::ELFHeader,
     elf_header_fields : Vec<Box<field::Field>>,
 
-    section_headers : Vec<elf::SectionHeader>,
+    section_headers : Vec<elf::SectionHeader<'gui>>,
 
-    program_headers : Vec<elf::ProgramHeader>,
+    program_headers : Vec<elf::ProgramHeader<'gui>>,
     program_header_fields : Vec<ProgramHeader>,
 
     // layout related stuff
@@ -46,12 +46,12 @@ enum Cursor {
     },
 }
 
-impl ElfGui {
+impl<'gui> ElfGui<'gui> {
     pub fn new(elf_header: elf::ELFHeader,
-               section_headers: Vec<elf::SectionHeader>,
-               program_headers: Vec<elf::ProgramHeader>,
-               width: i32, height: i32, pos_x: i32, pos_y: i32) -> ElfGui {
-        ElfGui {
+               section_headers: Vec<elf::SectionHeader<'gui>>,
+               program_headers: Vec<elf::ProgramHeader<'gui>>,
+               width: i32, height: i32, pos_x: i32, pos_y: i32) -> ElfGui<'gui> {
+        ElfGui::<'gui> {
             // OMG this is ridiculous. This line needs to come first because in
             // the next line we move the header. It turns out rustc can't
             // reorder these for me.

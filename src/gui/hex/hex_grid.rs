@@ -17,7 +17,7 @@ pub struct HexGrid<'grid> {
     width: i32,
     height: i32,
 
-    data: &'grid Vec<u8>,
+    data: &'grid [u8],
     path: &'grid str,
 
     cursor_x: i32,

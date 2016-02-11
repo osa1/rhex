@@ -78,7 +78,7 @@ pub struct ELFHeader {
 }
 
 #[derive(Debug)]
-pub struct ProgramHeader {
+pub struct ProgramHeader<'hdr> {
     /// What kind of segment this array element describes or how to interpret
     /// the array element's information.
     pub ty: ProgramHeaderType,
@@ -109,6 +109,9 @@ pub struct ProgramHeader {
 
     /// TODO
     pub align: u64,
+
+    /// Raw contents of the segment.
+    pub contents: &'hdr [u8],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -170,7 +173,7 @@ pub enum ProgramHeaderType {
 }
 
 #[derive(Debug)]
-pub struct SectionHeader {
+pub struct SectionHeader<'hdr> {
     /// Name of the section. Its value is an index into the section header
     /// string table section, giving the location of a null-terminated string.
     pub name: u32,
@@ -205,6 +208,9 @@ pub struct SectionHeader {
     /// table. For such a section, this gives the size in bytes of each entry.
     /// 0 if the section does not hold a table of fixed-size entries.
     pub entsize: u64,
+
+    /// Raw contents of the section.
+    pub contents: &'hdr [u8],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -496,7 +502,8 @@ pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
     })
 }
 
-pub fn parse_program_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<ProgramHeader> {
+pub fn parse_program_headers<'bytes>(elf_header : &ELFHeader, contents: &'bytes [u8])
+                                     -> Vec<ProgramHeader<'bytes>> {
     let num_pgm_headers      = elf_header.phnum as usize;
     let pgm_header_size      = elf_header.phentsize as usize;
     let pgm_headers_start_at = elf_header.phoff as usize;
@@ -508,11 +515,10 @@ pub fn parse_program_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Pr
 
     for i in 0 .. num_pgm_headers {
         let start_offset = pgm_headers_start_at + i * pgm_header_size;
-        let header_bits  = &contents[ start_offset .. ];
 
         let header = match class {
-            Class::Bit32 => parse_program_header_32(endianness, header_bits),
-            Class::Bit64 => parse_program_header_64(endianness, header_bits),
+            Class::Bit32 => parse_program_header_32(endianness, contents, start_offset),
+            Class::Bit64 => parse_program_header_64(endianness, contents, start_offset),
         };
 
         ret.push(header);
@@ -521,15 +527,18 @@ pub fn parse_program_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Pr
     ret
 }
 
-fn parse_program_header_32(endianness : Endianness, contents: &[u8]) -> ProgramHeader {
-    let ty     = read_u32(endianness,  contents);
-    let offset = read_u32(endianness, &contents[  4 .. ]) as u64;
-    let vaddr  = read_u32(endianness, &contents[  8 .. ]) as u64;
-    let paddr  = read_u32(endianness, &contents[ 12 .. ]) as u64;
-    let filesz = read_u32(endianness, &contents[ 16 .. ]) as u64;
-    let memsz  = read_u32(endianness, &contents[ 20 .. ]) as u64;
-    let flags  = read_u32(endianness, &contents[ 24 .. ]);
-    let align  = read_u32(endianness, &contents[ 30 .. ]) as u64;
+fn parse_program_header_32(endianness : Endianness, contents: &[u8], start_offset : usize)
+                           -> ProgramHeader {
+    let header_contents = &contents[ start_offset .. ];
+    let ty     = read_u32(endianness,  header_contents);
+    let offset = read_u32(endianness, &header_contents[  4 .. ]) as u64;
+    let vaddr  = read_u32(endianness, &header_contents[  8 .. ]) as u64;
+    let paddr  = read_u32(endianness, &header_contents[ 12 .. ]) as u64;
+    let filesz = read_u32(endianness, &header_contents[ 16 .. ]) as u64;
+    let memsz  = read_u32(endianness, &header_contents[ 20 .. ]) as u64;
+    let flags  = read_u32(endianness, &header_contents[ 24 .. ]);
+    let align  = read_u32(endianness, &header_contents[ 30 .. ]) as u64;
+    let bytes  = &contents[ offset as usize .. (offset + filesz) as usize ];
 
     ProgramHeader {
         ty: parse_program_header_ty(ty),
@@ -540,18 +549,23 @@ fn parse_program_header_32(endianness : Endianness, contents: &[u8]) -> ProgramH
         memsz: memsz,
         flags: flags,
         align: align,
+        contents: bytes,
     }
 }
 
-fn parse_program_header_64(endianness : Endianness, contents: &[u8]) -> ProgramHeader {
-    let ty     = read_u32(endianness,  contents);
-    let flags  = read_u32(endianness, &contents[  4 .. ]);
-    let offset = read_u64(endianness, &contents[  8 .. ]);
-    let vaddr  = read_u64(endianness, &contents[ 16 .. ]);
-    let paddr  = read_u64(endianness, &contents[ 24 .. ]);
-    let filesz = read_u64(endianness, &contents[ 32 .. ]);
-    let memsz  = read_u64(endianness, &contents[ 40 .. ]);
-    let align  = read_u64(endianness, &contents[ 48 .. ]);
+fn parse_program_header_64(endianness : Endianness, contents: &[u8], start_offset : usize)
+                           -> ProgramHeader {
+    let header_contents = &contents[ start_offset .. ];
+
+    let ty     = read_u32(endianness,  header_contents);
+    let flags  = read_u32(endianness, &header_contents[  4 .. ]);
+    let offset = read_u64(endianness, &header_contents[  8 .. ]);
+    let vaddr  = read_u64(endianness, &header_contents[ 16 .. ]);
+    let paddr  = read_u64(endianness, &header_contents[ 24 .. ]);
+    let filesz = read_u64(endianness, &header_contents[ 32 .. ]);
+    let memsz  = read_u64(endianness, &header_contents[ 40 .. ]);
+    let align  = read_u64(endianness, &header_contents[ 48 .. ]);
+    let bytes  = &contents[ offset as usize .. (offset + filesz) as usize ];
 
     ProgramHeader {
         ty: parse_program_header_ty(ty),
@@ -562,6 +576,7 @@ fn parse_program_header_64(endianness : Endianness, contents: &[u8]) -> ProgramH
         memsz: memsz,
         flags: flags,
         align: align,
+        contents: bytes,
     }
 }
 
@@ -584,7 +599,8 @@ fn parse_program_header_ty(ty : u32) -> ProgramHeaderType {
     }
 }
 
-pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<SectionHeader> {
+pub fn parse_section_headers<'bytes>(elf_header : &ELFHeader, contents: &'bytes [u8])
+                                     -> Vec<SectionHeader<'bytes>> {
     let num_section_headers = elf_header.shnum as usize;
     let section_header_size = elf_header.shentsize as usize;
     let headers_start_at    = elf_header.shoff as usize;
@@ -596,11 +612,10 @@ pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Se
 
     for i in 0 .. num_section_headers {
         let start_offset = headers_start_at + i * section_header_size;
-        let header_bits  = &contents[ start_offset .. ];
 
         let header = match class {
-            Class::Bit32 => parse_section_header_32(endianness, header_bits),
-            Class::Bit64 => parse_section_header_64(endianness, header_bits),
+            Class::Bit32 => parse_section_header_32(endianness, contents, start_offset),
+            Class::Bit64 => parse_section_header_64(endianness, contents, start_offset),
         };
 
         ret.push(header);
@@ -609,17 +624,22 @@ pub fn parse_section_headers(elf_header : &ELFHeader, contents: &[u8]) -> Vec<Se
     ret
 }
 
-fn parse_section_header_32(endianness : Endianness, contents : &[u8]) -> SectionHeader {
-    let name   = read_u32(endianness,  contents);
-    let ty     = read_u32(endianness, &contents[ 4 .. ]);
-    let flags  = read_u32(endianness, &contents[ 8 .. ]) as u64;
-    let addr   = read_u32(endianness, &contents[ 12 .. ]) as u64;
-    let offset = read_u32(endianness, &contents[ 16 .. ]) as u64;
-    let size   = read_u32(endianness, &contents[ 20 .. ]) as u64;
-    let link   = read_u32(endianness, &contents[ 24 .. ]);
-    let info   = read_u32(endianness, &contents[ 28 .. ]);
-    let addralign = read_u32(endianness, &contents[ 32 .. ]) as u64;
-    let entsize = read_u32(endianness, &contents[ 36 .. ]) as u64;
+fn parse_section_header_32<'bytes>(endianness : Endianness,
+                                   contents : &'bytes [u8],
+                                   start_offset : usize)
+                                   -> SectionHeader {
+    let header_contents = &contents[ start_offset .. ];
+    let name      = read_u32(endianness,  header_contents);
+    let ty        = read_u32(endianness, &header_contents[ 4 .. ]);
+    let flags     = read_u32(endianness, &header_contents[ 8 .. ]) as u64;
+    let addr      = read_u32(endianness, &header_contents[ 12 .. ]) as u64;
+    let offset    = read_u32(endianness, &header_contents[ 16 .. ]) as u64;
+    let size      = read_u32(endianness, &header_contents[ 20 .. ]) as u64;
+    let link      = read_u32(endianness, &header_contents[ 24 .. ]);
+    let info      = read_u32(endianness, &header_contents[ 28 .. ]);
+    let addralign = read_u32(endianness, &header_contents[ 32 .. ]) as u64;
+    let entsize   = read_u32(endianness, &header_contents[ 36 .. ]) as u64;
+    let bytes     = &contents[ offset as usize .. (offset + size) as usize ];
 
     SectionHeader {
         name: name,
@@ -632,20 +652,26 @@ fn parse_section_header_32(endianness : Endianness, contents : &[u8]) -> Section
         info: info,
         addralign: addralign,
         entsize: entsize,
+        contents: bytes,
     }
 }
 
-fn parse_section_header_64(endianness : Endianness, contents : &[u8]) -> SectionHeader {
-    let name   = read_u32(endianness,  contents);
-    let ty     = read_u32(endianness, &contents[ 4 .. ]);
-    let flags  = read_u64(endianness, &contents[ 8 .. ]);
-    let addr   = read_u64(endianness, &contents[ 16 .. ]);
-    let offset = read_u64(endianness, &contents[ 24 .. ]);
-    let size   = read_u64(endianness, &contents[ 32 .. ]);
-    let link   = read_u32(endianness, &contents[ 40 .. ]);
-    let info   = read_u32(endianness, &contents[ 44 .. ]);
-    let addralign = read_u64(endianness, &contents[ 48 .. ]);
-    let entsize = read_u64(endianness, &contents[ 56 .. ]);
+fn parse_section_header_64<'bytes>(endianness : Endianness,
+                                   contents : &'bytes [u8],
+                                   start_offset : usize)
+                                   -> SectionHeader {
+    let header_contents = &contents[ start_offset .. ];
+    let name      = read_u32(endianness,  header_contents);
+    let ty        = read_u32(endianness, &header_contents[ 4 .. ]);
+    let flags     = read_u64(endianness, &header_contents[ 8 .. ]);
+    let addr      = read_u64(endianness, &header_contents[ 16 .. ]);
+    let offset    = read_u64(endianness, &header_contents[ 24 .. ]);
+    let size      = read_u64(endianness, &header_contents[ 32 .. ]);
+    let link      = read_u32(endianness, &header_contents[ 40 .. ]);
+    let info      = read_u32(endianness, &header_contents[ 44 .. ]);
+    let addralign = read_u64(endianness, &header_contents[ 48 .. ]);
+    let entsize   = read_u64(endianness, &header_contents[ 56 .. ]);
+    let bytes     = &contents[ offset as usize .. (offset + size) as usize ];
 
     SectionHeader {
         name: name,
@@ -658,6 +684,7 @@ fn parse_section_header_64(endianness : Endianness, contents : &[u8]) -> Section
         info: info,
         addralign: addralign,
         entsize: entsize,
+        contents: bytes,
     }
 }
 
