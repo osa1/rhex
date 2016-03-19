@@ -45,6 +45,7 @@ type Imm16 = u16;
 type Imm32 = u32;
 type Imm64 = u64;
 
+#[derive(Debug)]
 enum Reg {
     Reg8(Reg8),
     Reg16(Reg16),
@@ -195,9 +196,16 @@ fn encode_and_print(instr : Box<Instr>) {
 
 type Opcode = Vec<OpcodePart>;
 
+#[derive(Debug)]
 enum OpcodePart {
     /// Just a byte
     Byte(u8),
+
+    /// Byte+i, see +i in 3.1.1.1
+    BytePlusI(u8),
+
+    /// Byte+r, see +r in 3.1.1.1
+    BytePlusReg(u8),
 
     /// REX.W sequence (0b0100_1000)
     ///                        ^ w
@@ -220,47 +228,56 @@ enum OpcodePart {
     Digit(u8),
 
     ModRM,
-
-    /// Encoding of reg operand in the opcode
-    Reg,
 }
 
-fn parse_opcode_part(s : &str) -> OpcodePart {
+fn parse_opcode_part(s : &str) -> Option<OpcodePart> {
     if s == "REX.W" {
-        OpcodePart::REXW
+        Some(OpcodePart::REXW)
     } else if s == "/r" {
-        OpcodePart::ModRM
+        Some(OpcodePart::ModRM)
     } else if s.char_at(0) == '/' {
         match (&s[1..]).parse::<u8>() {
             Err(err) => { panic!("parse_opcode_part: Can't parse {} {}", s, err); }
-            Ok(d) => OpcodePart::Digit(d)
+            Ok(d) => Some(OpcodePart::Digit(d))
         }
     } else if s == "ib" {
-        OpcodePart::IB
+        Some(OpcodePart::IB)
     } else if s == "iw" {
-        OpcodePart::IW
+        Some(OpcodePart::IW)
     } else if s == "id" {
-        OpcodePart::ID
+        Some(OpcodePart::ID)
     } else if s == "iq" {
-        OpcodePart::IQ
-    } else if s == "r" {
-        OpcodePart::Reg
-    } else {
+        Some(OpcodePart::IQ)
+    }
+
+    // Ignoring these for now
+    else if s.starts_with("VEX") || s.starts_with("EVEX") || s.starts_with("XOP") {
+        None
+    }
+
+    else {
         let hex_digit_1 = s.char_at(0).to_digit(16).unwrap_or_else(|| panic!("Not valid hex: {}", s));
         let hex_digit_2 = s.char_at(1).to_digit(16).unwrap_or_else(|| panic!("Not valid hex: {}", s));
-        OpcodePart::Byte((hex_digit_1 * 16 + hex_digit_2) as u8)
+        let byte = (hex_digit_1 * 16 + hex_digit_2) as u8;
+        if s.len() > 2 {
+            if &s[2..] == "+i" {
+                Some(OpcodePart::BytePlusI(byte))
+            } else if &s[2..] == "+r" {
+                Some(OpcodePart::BytePlusReg(byte))
+            } else {
+                panic!("Can't parse opcode part: {}", s)
+            }
+        } else {
+            Some(OpcodePart::Byte(byte))
+        }
     }
 }
 
-fn parse_opcode(s : &str) -> Opcode {
-    s.split(' ').flat_map(|s| s.split('+')).map(parse_opcode_part).collect()
+fn parse_opcode(s : &str) -> Option<Opcode> {
+    s.split(' ').map(parse_opcode_part).collect::<Option<Opcode>>()
 }
 
-enum Either<L, R> {
-    Left(L),
-    Right(R),
-}
-
+#[derive(Debug)]
 enum Operand {
     Implicit(Reg),
     Explicit(Reg),
@@ -302,11 +319,17 @@ enum Operand {
     /// ds:zsi
     EXP_DS_ZSI,
     IMP_DS_ZSI,
+
+    CS, DS, ES, SS, FS, GS,
+
+    One,
 }
 
 fn parse_operand(s : &str) -> Option<Operand> {
     // TODO: Maybe move these into a table
-    if      s == "" { None }
+    if      s == ""  { None }
+
+    else if s == "1" { Some(Operand::One) }
 
     else if s == "<al>"  { Some(Operand::Implicit(Reg::Reg8 (Reg8::AL )))  }
     else if s == "<ah>"  { Some(Operand::Implicit(Reg::Reg8 (Reg8::AH )))  }
@@ -321,7 +344,15 @@ fn parse_operand(s : &str) -> Option<Operand> {
     else if s == "<rcx>" { Some(Operand::Implicit(Reg::Reg64(Reg64::RCX))) }
     else if s == "<rdx>" { Some(Operand::Implicit(Reg::Reg64(Reg64::RDX))) }
 
+    else if s == "cs"  { Some(Operand::CS) }
+    else if s == "ds"  { Some(Operand::DS) }
+    else if s == "es"  { Some(Operand::ES) }
+    else if s == "ss"  { Some(Operand::SS) }
+    else if s == "fs"  { Some(Operand::FS) }
+    else if s == "gs"  { Some(Operand::GS) }
+
     else if s == "al"  { Some(Operand::Explicit(Reg::Reg8 (Reg8::AL  ))) }
+    else if s == "cl"  { Some(Operand::Explicit(Reg::Reg8 (Reg8::CL )))  }
     else if s == "ax"  { Some(Operand::Explicit(Reg::Reg16(Reg16::AX ))) }
     else if s == "cx"  { Some(Operand::Explicit(Reg::Reg16(Reg16::CX ))) }
     else if s == "dx"  { Some(Operand::Explicit(Reg::Reg16(Reg16::DX ))) }
@@ -396,17 +427,22 @@ fn parse_operand(s : &str) -> Option<Operand> {
         } else if pfx == "X:" {
             parse_operand(&s[ 2 .. ])
         } else {
-            panic!("Can't parse operand: {}", s)
+            // panic!("Can't parse operand: {}", s)
+            // ignore for now
+            None
         }
     } else {
-        panic!("Can't parse operand: {}", s)
+        // panic!("Can't parse operand: {}", s)
+        // ignore for now
+        None
     }
 }
 
-fn parse_operands(s : &str) -> Vec<Operand> {
-    s.split(' ').filter_map(|s| parse_operand(s.trim().trim_matches(','))).collect()
+fn parse_operands(s : &str) -> Option<Vec<Operand>> {
+    s.split(' ').map(|s| parse_operand(s.trim().trim_matches(','))).collect::<Option<Vec<Operand>>>()
 }
 
+#[derive(Debug)]
 struct Instr_ {
     pub mnem : &'static str,
     pub operands : Vec<Operand>,
@@ -440,13 +476,22 @@ fn main() {
         let encoding = instr[2];
         let opcodes = instr[3];
         let tags = instr[4];
-        instrs.push(Instr_ {
-            mnem : mnem,
-            operands : parse_operands(operands),
-            // encoding : panic!(),
-            opcode : parse_opcode(opcodes)
-        });
+
+        if let Some(opcode) = parse_opcode(opcodes) {
+            if let Some(operands) = parse_operands(operands) {
+                instrs.push(Instr_ {
+                    mnem : mnem,
+                    operands : operands,
+                    // encoding : panic!(),
+                    opcode : opcode
+                });
+            }
+        }
     }
 
     println!("{} instructions parsed.", instrs.len());
+
+    for instr in instrs {
+        println!("{:?}", instr);
+    }
 }

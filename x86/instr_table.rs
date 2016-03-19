@@ -82,7 +82,7 @@
 // [ ] TSX extensions
 // [ ] MPX extensions
 
-pub static INSTR_STRS : [ [&'static str; 5]; 3508 ] =
+pub static INSTR_STRS : [ [&'static str; 5]; 3504 ] =
 [
     // X86/X64.
     ["aaa"              , "<ax>"                                     , "NONE" , "37"                               , "X86 OF=U SF=U ZF=U AF=W PF=U CF=W"],
@@ -474,11 +474,13 @@ pub static INSTR_STRS : [ [&'static str; 5]; 3508 ] =
     ["mov"              , "W:r32/m32, id"                            , "MI"   , "C7 /0 id"                         , "ANY"],
     ["mov"              , "W:r64/m64, id"                            , "MI"   , "REX.W C7 /0 id"                   , "X64"],
 
-    ["mov"              , "W:rxx, creg"                              , "MR"   , "0F 20 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
-    ["mov"              , "W:creg, rxx"                              , "RM"   , "0F 22 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
+    // TODO(osa): What is creg??
+    // ["mov"              , "W:rxx, creg"                              , "MR"   , "0F 20 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
+    // ["mov"              , "W:creg, rxx"                              , "RM"   , "0F 22 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
 
-    ["mov"              , "W:rxx, dreg"                              , "MR"   , "0F 21 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
-    ["mov"              , "W:dreg, rxx"                              , "RM"   , "0F 23 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
+    // TODO(osa): What is dreg??
+    // ["mov"              , "W:rxx, dreg"                              , "MR"   , "0F 21 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
+    // ["mov"              , "W:dreg, rxx"                              , "RM"   , "0F 23 /r"                         , "ANY OF=U SF=U ZF=U AF=U PF=U CF=U"],
 
     ["movsb"            , "X:<es:zdi>, X:<ds:zsi>"                   , "NONE" , "A4"                               , "ANY REP DF=R"],
     ["movsw"            , "X:<es:zdi>, X:<ds:zsi>"                   , "NONE" , "66 A5"                            , "ANY REP DF=R"],
