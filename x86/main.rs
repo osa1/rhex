@@ -7,7 +7,7 @@ use std::str;
 use std::io::BufRead;
 use std::fmt::Debug;
 
-pub mod instr_table;
+// pub mod instr_table;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -52,6 +52,39 @@ enum Reg {
     Reg32(Reg32),
     Reg64(Reg64),
 }
+
+type Mem = Reg;
+
+#[inline]
+fn encode_reg_modrm(reg : Reg) -> u8 {
+    match reg {
+        Reg::Reg8 (reg8 ) => reg8 as u8,
+        Reg::Reg16(reg16) => reg16 as u8,
+        Reg::Reg32(reg32) => reg32 as u8,
+        Reg::Reg64(reg64) => reg64 as u8,
+    }
+}
+
+struct Disp8_Reg32 {
+    reg : Reg32,
+    disp : u8,
+}
+
+struct Disp8_Reg64 {
+    reg : Reg64,
+    disp : u8,
+}
+
+struct Disp32_Reg32 {
+    reg : Reg32,
+    disp : u32,
+}
+
+struct Disp32_Reg64 {
+    reg : Reg64,
+    disp : u32,
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -450,6 +483,163 @@ struct Instr_ {
     pub opcode : Opcode,
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+#[inline]
+fn encode_u16(iw : u16, buf : &mut Vec<u8>) {
+    buf.push(iw as u8);
+    buf.push((iw > 8) as u8);
+}
+
+#[inline]
+fn encode_u32(id : u32, buf : &mut Vec<u8>) {
+    buf.push(id as u8);
+    buf.push((id >> 8) as u8);
+    buf.push((id >> 16) as u8);
+    buf.push((id >> 24) as u8);
+}
+
+#[inline]
+fn encode_u64(iq : u64, buf : &mut Vec<u8>) {
+    buf.push(iq as u8);
+    buf.push((iq >> 8) as u8);
+    buf.push((iq >> 16) as u8);
+    buf.push((iq >> 24) as u8);
+    buf.push((iq >> 32) as u8);
+    buf.push((iq >> 40) as u8);
+    buf.push((iq >> 48) as u8);
+    buf.push((iq >> 54) as u8);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+fn encode_aax(buf : &mut Vec<u8>) {
+    buf.push(0x37);
+}
+
+fn encode_aas(buf : &mut Vec<u8>) {
+    buf.push(0x3F);
+}
+
+fn encode_aad(ib : u8, buf : &mut Vec<u8>) {
+    buf.push(0xD5);
+    buf.push(ib);
+}
+
+fn encode_aam(ib : u8, buf : &mut Vec<u8>) {
+    buf.push(0xD4);
+    buf.push(ib);
+}
+
+fn encode_adc_al_ib(ib : u8, buf : &mut Vec<u8>) {
+    buf.push(0x14);
+    buf.push(ib);
+}
+
+fn encode_adc_ax_iw(iw : u16, buf : &mut Vec<u8>) {
+    buf.push(0x66);
+    buf.push(0x15);
+    encode_u16(iw, buf);
+}
+
+fn encode_adc_eax_id(id : u32, buf : &mut Vec<u8>) {
+    buf.push(0x15);
+    encode_u32(id, buf);
+}
+
+fn encode_adc_rax_id(id : u32, buf : &mut Vec<u8>) {
+    buf.push(REX_W);
+    buf.push(0x15);
+    encode_u32(id, buf);
+}
+
+fn encode_adc_m64_r64(m64 : Mem64, r64 : Reg64, buf : &mut Vec<u8>) {
+    let mut rexw = REX_W;
+    if r64 >= Reg64::R8 { rexw |= 0b0000_0100; }
+    if m64 >= Reg64::R8 { rexw |= 0b0000_0001; }
+    buf.push(rexw);
+    buf.push(0x11);
+    // Mod: Mem - Reg = 00
+    // MR
+    buf.push((((r64 as u8) & 0b00000111) << 3) | m64 as u8);
+}
+
+fn encode_lea_r64_mem(r64 : Reg64, mem : Mem, buf : &mut Vec<u8>) {
+    let mut rexw = REX_W;
+    if r64 >= Reg64::R8 {
+        rexw |= 0b0000_0100;
+    }
+    if let Reg::Reg64(reg64) = mem {
+        if reg64 >= Reg64::R8 {
+            rexw |= 0b0000_0001;
+        }
+    };
+    buf.push(rexw);
+    buf.push(0x8D);
+    // mod = 0
+    buf.push((((r64 as u8) & 0b00000111) << 3) | encode_reg_modrm(mem));
+}
+
+fn encode_lea_r64_disp8_32(r64 : Reg64, disp : Disp8_Reg32, buf : &mut Vec<u8>) {
+    // Need address-size override prefix
+    buf.push(0x67);
+    let mut rexw = REX_W;
+    if r64 >= Reg64::R8 {
+        rexw |= 0b0000_0100;
+    }
+    buf.push(rexw);
+    buf.push(0x8D);
+    // mod = 01
+    buf.push(0b0100_0000 | (((r64 as u8) & 0b00000111) << 3) | (disp.reg as u8));
+    buf.push(disp.disp);
+}
+
+fn encode_lea_r64_disp8_64(r64 : Reg64, disp : Disp8_Reg64, buf : &mut Vec<u8>) {
+    let mut rexw = REX_W;
+    if r64 >= Reg64::R8 {
+        rexw |= 0b0000_0100;
+    }
+    if disp.reg >= Reg64::R8 {
+        rexw |= 0b0000_0001;
+    }
+    buf.push(rexw);
+    buf.push(0x8D);
+    // mod = 01
+    buf.push(0b0100_0000 | (((r64 as u8) & 0b00000111) << 3) | (disp.reg as u8));
+    buf.push(disp.disp);
+}
+
+fn encode_lea_r64_disp32_32(r64 : Reg64, disp : Disp32_Reg32, buf : &mut Vec<u8>) {
+    // Need address-size override prefix
+    buf.push(0x67);
+    let mut rexw = REX_W;
+    if r64 >= Reg64::R8 {
+        rexw |= 0b0000_0100;
+    }
+    buf.push(rexw);
+    buf.push(0x8D);
+    // mod = 10
+    buf.push(0b1000_0000 | (((r64 as u8) & 0b00000111) << 3) | (disp.reg as u8));
+    encode_u32(disp.disp, buf);
+}
+
+fn encode_lea_r64_disp32_64(r64 : Reg64, disp : Disp32_Reg64, buf : &mut Vec<u8>) {
+    let mut rexw = REX_W;
+    if r64 >= Reg64::R8 {
+        rexw |= 0b0000_0100;
+    }
+    if disp.reg >= Reg64::R8 {
+        rexw |= 0b0000_0001;
+    }
+    buf.push(rexw);
+    buf.push(0x8D);
+    // mod = 10
+    buf.push(0b1000_0000 | (((r64 as u8) & 0b00000111) << 3) | (disp.reg as u8));
+    encode_u32(disp.disp, buf);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 fn main() {
     // let mut buf : Vec<u8> = Vec::with_capacity(3);
     // let instr = Box::new(Add_RM64_R64 { op1 : Reg64::RAX, op2 : Reg64::RCX });
@@ -469,29 +659,52 @@ fn main() {
 
     // let instr = Box::new(Mov_M64_R64 { op1 : Reg64::RAX, op2 : Reg64::R9 });
     // encode_and_print(instr);
-    let mut instrs = Vec::new();
-    for instr in instr_table::INSTR_STRS.iter() {
-        let mnem = instr[0];
-        let operands = instr[1];
-        let encoding = instr[2];
-        let opcodes = instr[3];
-        let tags = instr[4];
 
-        if let Some(opcode) = parse_opcode(opcodes) {
-            if let Some(operands) = parse_operands(operands) {
-                instrs.push(Instr_ {
-                    mnem : mnem,
-                    operands : operands,
-                    // encoding : panic!(),
-                    opcode : opcode
-                });
-            }
-        }
-    }
+    let mut buf : Vec<u8> = Vec::new();
+    encode_adc_m64_r64(Reg64::RAX, Reg64::RDI, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
 
-    println!("{} instructions parsed.", instrs.len());
+    encode_lea_r64_mem(Reg64::RAX, Reg::Reg64(Reg64::RDI), &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
 
-    for instr in instrs {
-        println!("{:?}", instr);
-    }
+    encode_lea_r64_disp8_32(Reg64::R11,  Disp8_Reg32 { reg : Reg32::EAX, disp : 15 }, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_lea_r64_disp8_64(Reg64::R11, Disp8_Reg64 { reg : Reg64::RAX, disp : 12 }, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_lea_r64_disp32_64(Reg64::R11,
+                             Disp32_Reg64 { reg : Reg64::RAX, disp : 16777215 }, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    // let mut instrs = Vec::new();
+    // for instr in instr_table::INSTR_STRS.iter() {
+    //     let mnem = instr[0];
+    //     let operands = instr[1];
+    //     let encoding = instr[2];
+    //     let opcodes = instr[3];
+    //     let tags = instr[4];
+
+    //     if let Some(opcode) = parse_opcode(opcodes) {
+    //         if let Some(operands) = parse_operands(operands) {
+    //             instrs.push(Instr_ {
+    //                 mnem : mnem,
+    //                 operands : operands,
+    //                 // encoding : panic!(),
+    //                 opcode : opcode
+    //             });
+    //         }
+    //     }
+    // }
+
+    // println!("{} instructions parsed.", instrs.len());
+
+    // for instr in instrs {
+    //     println!("{:?}", instr);
+    // }
 }
