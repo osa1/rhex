@@ -6,6 +6,10 @@ use std::path::Path;
 use std::str;
 use std::io::BufRead;
 use std::fmt::Debug;
+use std::ffi::CString;
+
+
+extern crate libc;
 
 // pub mod instr_table;
 
@@ -31,8 +35,51 @@ enum Reg16 {
 
 #[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 enum Reg8 {
-    AL = 0, CL, DL, BL, AH, CH, DH, BH, SPL, BPL, SIL, DIL,
+    AL = 0, CL, DL, BL, AH, CH, DH, BH,
+    SPL, BPL, SIL, DIL,
     R8L, R9L, R10L, R11L, R12L, R13L, R14L, R15L
+}
+
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+enum XMM {
+    XMM0 = 0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
+    XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15
+}
+
+#[inline]
+fn reg16_bits(reg : Reg16) -> (bool, u8) {
+    if reg >= Reg16::R8W {
+        (true, (reg as u8) & 0b0000_0111)
+    } else {
+        (false, reg as u8)
+    }
+}
+
+#[inline]
+fn reg32_bits(reg : Reg32) -> (bool, u8) {
+    if reg >= Reg32::R8D {
+        (true, (reg as u8) & 0b0000_0111)
+    } else {
+        (false, reg as u8)
+    }
+}
+
+#[inline]
+fn reg64_bits(reg : Reg64) -> (bool, u8) {
+    if reg >= Reg64::R8 {
+        (true, (reg as u8) & 0b0000_0111)
+    } else {
+        (false, reg as u8)
+    }
+}
+
+#[inline]
+fn xmm_bits(xmm : XMM) -> (bool, u8) {
+    if xmm >= XMM::XMM8 {
+        (true, (xmm as u8) & 0b0000_0111)
+    } else {
+        (false, xmm as u8)
+    }
 }
 
 type Mem64 = Reg64;
@@ -94,6 +141,7 @@ trait Instr : Debug {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#[inline]
 fn rex_pfx(w : bool, r : bool, x : bool, b : bool) -> u8 {
     let mut ret = 0b0100_0000;
 
@@ -638,6 +686,87 @@ fn encode_lea_r64_disp32_64(r64 : Reg64, disp : Disp32_Reg64, buf : &mut Vec<u8>
     encode_u32(disp.disp, buf);
 }
 
+fn encode_pop_r(reg : Reg, buf : &mut Vec<u8>) {
+
+    // This is tricky. Same encoding means "pop to 32bit reg" or "pop to 64bit
+    // reg" depending on current mode (32bit vs. 64bit). Also, we need rex
+    // prefix if 64bit regs are used, even thought the opcode column in the
+    // manual doesn't show it.
+
+    match reg {
+        Reg::Reg8(_) => { panic!("encode_pop_r: Can't encode reg8"); },
+        Reg::Reg16(reg16) => {
+            buf.push(0x66);
+            let (rex_b, reg_bits) = reg16_bits(reg16);
+            if rex_b {
+                buf.push(rex_pfx(false, false, false, true));
+            }
+            buf.push(0x58 + reg_bits);
+        },
+        Reg::Reg32(reg32) => {
+            let (rex_b, reg_bits) = reg32_bits(reg32);
+            if rex_b {
+                buf.push(rex_pfx(false, false, false, true));
+            }
+            buf.push(0x58 + reg_bits);
+        },
+        Reg::Reg64(reg64) => {
+            let (rex_b, reg_bits) = reg64_bits(reg64);
+            if rex_b {
+                buf.push(rex_pfx(false, false, false, true));
+            }
+            buf.push(0x58 + reg_bits);
+        }
+    }
+}
+
+fn encode_mov_r64_imm64(reg : Reg64, imm : u64, buf : &mut Vec<u8>) {
+    let (rex_b, reg_bits) = reg64_bits(reg);
+    buf.push(rex_pfx(true, false, false, rex_b));
+    buf.push(0xB8 + reg_bits);
+    encode_u64(imm, buf);
+}
+
+fn encode_movq_xmm_r64(xmm : XMM, reg : Reg64, buf : &mut Vec<u8>) {
+    buf.push(0x66);
+    let (rex_r, xmm_bits) = xmm_bits(xmm);
+    let (rex_b, reg_bits) = reg64_bits(reg);
+    buf.push(rex_pfx(true, rex_r, false, rex_b));
+    buf.push(0x0F);
+    buf.push(0x6E);
+    // mod = 0b11
+    buf.push(0b1100_0000 | (xmm_bits << 3) | reg_bits);
+}
+
+fn encode_sub_r64_ib(reg : Reg64, id : u8, buf : &mut Vec<u8>) {
+    let (rex_b, reg_bits) = reg64_bits(reg);
+    buf.push(rex_pfx(true, false, false, rex_b));
+    buf.push(0x83);
+    buf.push(0b1100_0000 | (5 << 3) | reg_bits);
+    buf.push(id);
+}
+
+fn encode_add_r64_ib(reg : Reg64, id : u8, buf : &mut Vec<u8>) {
+    let (rex_b, reg_bits) = reg64_bits(reg);
+    buf.push(rex_pfx(true, false, false, rex_b));
+    buf.push(0x83);
+    buf.push(0b1100_0000 | reg_bits);
+    buf.push(id);
+}
+
+fn encode_ret(buf : &mut Vec<u8>) {
+    buf.push(0xC3);
+}
+
+fn encode_call_r64(reg : Reg64, buf : &mut Vec<u8>) {
+    let (rex_b, reg_bits) = reg64_bits(reg);
+    if rex_b {
+        buf.push(rex_pfx(true, false, false, true));
+    }
+    buf.push(0xFF);
+    buf.push(0b1100_0000 | (2 << 3) | reg_bits);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
@@ -681,6 +810,58 @@ fn main() {
                              Disp32_Reg64 { reg : Reg64::RAX, disp : 16777215 }, &mut buf);
     println!("{}", to_hex_string(&buf));
     buf.clear();
+
+    encode_pop_r(Reg::Reg64(Reg64::R11), &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_pop_r(Reg::Reg64(Reg64::RAX), &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_pop_r(Reg::Reg64(Reg64::RAX), &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_pop_r(Reg::Reg16(Reg16::AX), &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_mov_r64_imm64(Reg64::RAX, 25.0f32 as u64, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_movq_xmm_r64(XMM::XMM0, Reg64::RAX, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_sub_r64_ib(Reg64::RSP, 8, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    encode_call_r64(Reg64::RAX, &mut buf);
+    println!("{}", to_hex_string(&buf));
+    buf.clear();
+
+    let sqrt_ptr : u64 = unsafe {
+        libc::dlsym(libc::RTLD_DEFAULT, CString::new("sqrt").unwrap().into_raw()) as u64
+    };
+
+    println!("ptr: 0x{:X}", sqrt_ptr);
+
+    // A simple function that calls libc's sqrt
+    buf.clear();
+    encode_sub_r64_ib(Reg64::RSP, 8, &mut buf);
+    encode_mov_r64_imm64(Reg64::RDI, 25.0f32 as u64, &mut buf);
+    encode_movq_xmm_r64(XMM::XMM0, Reg64::RDI, &mut buf);
+    // Call absolute address
+    encode_mov_r64_imm64(Reg64::RSI, sqrt_ptr, &mut buf);
+    encode_call_r64(Reg64::RSI, &mut buf);
+    // Return value should be in correct register
+    // move stack pointer back
+    encode_add_r64_ib(Reg64::RSP, 8, &mut buf);
+    encode_ret(&mut buf);
+    println!("\n{}", to_hex_string(&buf));
 
     // let mut instrs = Vec::new();
     // for instr in instr_table::INSTR_STRS.iter() {
