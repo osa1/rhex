@@ -863,29 +863,18 @@ fn main() {
     encode_ret(&mut buf);
     println!("\n{}", to_hex_string(&buf));
 
-    // let mut instrs = Vec::new();
-    // for instr in instr_table::INSTR_STRS.iter() {
-    //     let mnem = instr[0];
-    //     let operands = instr[1];
-    //     let encoding = instr[2];
-    //     let opcodes = instr[3];
-    //     let tags = instr[4];
+    // allocate some executable space
+    let code_ptr : *mut libc::c_void = unsafe {
+        libc::mmap(
+            std::ptr::null_mut(), buf.len(),
+            libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE,
+            libc::MAP_PRIVATE | libc::MAP_ANONYMOUS, -1, 0)
+    };
 
-    //     if let Some(opcode) = parse_opcode(opcodes) {
-    //         if let Some(operands) = parse_operands(operands) {
-    //             instrs.push(Instr_ {
-    //                 mnem : mnem,
-    //                 operands : operands,
-    //                 // encoding : panic!(),
-    //                 opcode : opcode
-    //             });
-    //         }
-    //     }
-    // }
+    unsafe {
+        std::ptr::copy(buf.as_ptr() as *mut libc::c_void, code_ptr, buf.len());
+    };
 
-    // println!("{} instructions parsed.", instrs.len());
-
-    // for instr in instrs {
-    //     println!("{:?}", instr);
-    // }
+    let fun : (extern "C" fn() -> f32) = unsafe { std::mem::transmute(code_ptr) };
+    println!("{}", fun());
 }
