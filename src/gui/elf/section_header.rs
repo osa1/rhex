@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::str;
 
 use colors::Color;
 use gui::elf::field;
@@ -20,12 +21,12 @@ static HEADER_TITLE : &'static str = "Section header";
 
 impl Widget for SectionHeader {
     fn get_height(&self) -> i32 {
-        11
+        12
     }
 
     fn focus(&mut self) -> bool {
-        self.has_focus = true;
-        true
+        // self.has_focus = true;
+        false
     }
 
     fn keypressed(&mut self, key : i32) -> WidgetRet {
@@ -52,75 +53,99 @@ impl Widget for SectionHeader {
     }
 }
 
-pub fn mk_sec_hdr_fields(hdrs : &Vec<elf::SectionHeader>) -> Vec<Box<Widget>> {
+pub fn mk_sec_hdr_fields(hdrs : &Vec<elf::SectionHeader>, string_table : &Option<elf::StringTable>)
+                         -> Vec<Box<Widget>> {
     let mut headers : Vec<Box<Widget>> = Vec::with_capacity(hdrs.len());
 
     for hdr in hdrs {
         let mut fields : Vec<Box<Widget>> = Vec::with_capacity(9);
 
-        // TODO: name
-
         fields.push(Box::new(field::ElfHdrField_str {
             value: format!("{:?}", hdr.ty),
             title: "Type:".to_string(),
-            num_fields: 9,
+            num_fields: 10,
             current_field: 1,
         }));
+
+        if hdr.name != 0 {
+            let string = {
+                if let Some(ref tbl) = *string_table {
+                    if let Some(bytes) = elf::index_string_table(tbl, hdr.name as usize) {
+                        if let Ok(str) = str::from_utf8(bytes) {
+                            str.to_string()
+                        } else {
+                            "<Non-utf8 string>".to_string()
+                        }
+                    } else {
+                        "<Can't read from string table>".to_string()
+                    }
+                } else {
+                    "<String table missing>".to_string()
+                }
+            };
+
+            fields.push(Box::new(field::ElfHdrField_str {
+                value: string,
+                title: "Name:".to_string(),
+                num_fields: 10,
+                current_field: 2,
+            }));
+        }
 
         fields.push(Box::new(field::ElfHdrField_hex::<u64> {
             value: hdr.flags,
             title: "Flags:".to_string(),
-            num_fields: 9,
-            current_field: 2,
+            num_fields: 10,
+            current_field: 3,
         }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u64> {
             value: hdr.addr,
             title: "Addr:".to_string(),
-            num_fields: 9,
-            current_field: 3,
+            num_fields: 10,
+            current_field: 4,
         }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u64> {
             value: hdr.offset,
             title: "Offset:".to_string(),
-            num_fields: 9,
-            current_field: 4,
+            num_fields: 10,
+            current_field: 5,
         }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u64> {
             value: hdr.size,
             title: "Size:".to_string(),
-            num_fields: 9,
-            current_field: 5,
+            num_fields: 10,
+            current_field: 6,
         }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u32> {
             value: hdr.link,
             title: "Link:".to_string(),
-            num_fields: 9,
-            current_field: 6,
+            num_fields: 10,
+            current_field: 7,
         }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u32> {
             value: hdr.info,
             title: "Info:".to_string(),
-            num_fields: 9,
-            current_field: 7,
+            num_fields: 10,
+            current_field: 8,
         }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u64> {
             value: hdr.addralign,
             title: "Addralign:".to_string(),
-            num_fields: 9,
-            current_field: 8,
+            num_fields: 10,
+            current_field: 9,
         }));
 
         fields.push(Box::new(field::ElfHdrField_hex::<u64> {
             value: hdr.entsize,
             title: "Entsize:".to_string(),
-            num_fields: 9,
-            current_field: 9,
+            num_fields: 10,
+            current_field: 10,
         }));
 
         headers.push(Box::new(SectionHeader {

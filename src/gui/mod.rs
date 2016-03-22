@@ -1,8 +1,8 @@
 #[macro_use]
 pub mod macros;
 
-pub mod hex;
 pub mod elf;
+pub mod hex;
 
 use self::elf::ElfGui;
 
@@ -42,8 +42,10 @@ impl<'gui> Gui<'gui> {
     pub fn init_elf_gui(&mut self,
                         elf_header : ::parser::elf::ELFHeader,
                         program_headers : Vec<::parser::elf::ProgramHeader<'gui>>,
-                        section_headers : Vec<::parser::elf::SectionHeader<'gui>>) {
+                        section_headers : Vec<::parser::elf::SectionHeader<'gui>>,
+                        string_table    : Option<::parser::elf::StringTable>) {
         self.elf_gui = Some(ElfGui::new(elf_header, section_headers, program_headers,
+                                        string_table,
                                         self.width, self.height, self.pos_x, self.pos_y));
     }
 

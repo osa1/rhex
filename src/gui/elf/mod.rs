@@ -19,6 +19,7 @@ pub struct ElfGui<'gui> {
     elf_header : elf::ELFHeader,
     section_headers : Vec<elf::SectionHeader<'gui>>,
     program_headers : Vec<elf::ProgramHeader<'gui>>,
+    string_table : Option<elf::StringTable>,
 
     fields : Vec<Box<Widget>>,
 
@@ -43,16 +44,18 @@ impl<'gui> ElfGui<'gui> {
     pub fn new(elf_header: elf::ELFHeader,
                section_headers: Vec<elf::SectionHeader<'gui>>,
                program_headers: Vec<elf::ProgramHeader<'gui>>,
+               string_table: Option<elf::StringTable>,
                width: i32, height: i32, pos_x: i32, pos_y: i32) -> ElfGui<'gui> {
 
         let mut fields = field::mk_elf_hdr_fields(&elf_header);
         fields.append(&mut program_header::mk_pgm_hdr_fields(&program_headers));
-        fields.append(&mut section_header::mk_sec_hdr_fields(&section_headers));
+        fields.append(&mut section_header::mk_sec_hdr_fields(&section_headers, &string_table));
 
         ElfGui::<'gui> {
             elf_header: elf_header,
             section_headers: section_headers,
             program_headers: program_headers,
+            string_table: string_table,
             fields: fields,
 
             width: width,

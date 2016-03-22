@@ -502,6 +502,9 @@ pub fn parse_elf_header_(contents : &[u8]) -> ParseResult {
     })
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Program headers
+
 pub fn parse_program_headers<'bytes>(elf_header : &ELFHeader, contents: &'bytes [u8])
                                      -> Vec<ProgramHeader<'bytes>> {
     let num_pgm_headers      = elf_header.phnum as usize;
@@ -598,6 +601,9 @@ fn parse_program_header_ty(ty : u32) -> ProgramHeaderType {
         _ => panic!("parse_program_header_ty: Unknown program header type: 0x{0:X}", ty),
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Section headers
 
 pub fn parse_section_headers<'bytes>(elf_header : &ELFHeader, contents: &'bytes [u8])
                                      -> Vec<SectionHeader<'bytes>> {
@@ -717,6 +723,53 @@ fn parse_section_header_ty(ty : u32) -> SectionHeaderType {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// String table
+
+pub type StringTable = Vec<u8>;
+
+// Two things about the string table:
+//
+// 1. It's optional, ELF files don't necessarily have it.
+//
+// 2. We need to return the raw bytes as an index to the string table can be to
+//    any byte in the table. E.g. this works:
+//
+//      ['\0', 'f', 'o', 'o', '\0']
+//
+//    An index 0 means no string, 1 means string "foo", 2 means "oo".
+//
+// We copy the bytes just to be able to move section headers and elf header
+// around freely. (also makes lifetime management easier)
+pub fn parse_string_table(elf_header : &ELFHeader, section_headers : &Vec<SectionHeader>)
+                          -> Option<StringTable> {
+    if elf_header.shstrndx == 0 {
+        None
+    } else {
+        Some(section_headers[elf_header.shstrndx as usize].contents.to_vec())
+    }
+}
+
+pub fn index_string_table<'tbl>(tbl : &'tbl StringTable, idx : usize) -> Option<&'tbl [u8]> {
+    if idx == 0 {
+        // Apparently this has a special meaning, we shouldn't return an empty
+        // string. From the ELF spec:
+        //
+        //   A string whose index is zero specifies either no name or a null
+        //   name, depending on the context.
+        None
+    } else {
+        let mut end = idx;
+        while tbl[end] != 0 {
+            end += 1;
+        }
+        Some(&tbl[idx .. end])
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Utils
+
 fn read_u16(endianness : Endianness, from : &[u8]) -> u16 {
     match endianness {
         Endianness::LittleEndian => {
@@ -752,26 +805,4 @@ fn read_u64(endianness : Endianness, from : &[u8]) -> u64 {
                 | (read_u32(endianness, &from[ 4 .. ]) as u64)
         }
     }
-}
-
-/// Extract bytes of string slices from a string table.
-/// Strings do not have null terminator!
-pub fn read_string_table(bytes : &[u8]) -> Vec<&[u8]> {
-    let mut ret = Vec::new();
-
-    // First byte is always zero, as is the last byte.
-    let mut start = 1;
-    let mut i     = 2;
-
-    while i < bytes.len() {
-        if unsafe { *bytes.get_unchecked(i) } == 0 {
-            ret.push( &bytes[ start .. i ] );
-            start = i + 1;
-            i     = start + 1;
-        } else {
-            i += 1;
-        }
-    }
-
-    ret
 }
