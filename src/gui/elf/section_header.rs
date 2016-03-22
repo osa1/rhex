@@ -2,10 +2,12 @@ use std::borrow::Borrow;
 use std::str;
 
 use colors::Color;
-use gui::elf::field;
-use gui::elf::widget::{Widget, WidgetRet};
 use parser::elf;
 use utils::draw_box;
+
+use gui::disas::DisasView;
+use gui::elf::field;
+use gui::elf::widget::{Widget, WidgetRet};
 
 use ncurses as nc;
 
@@ -21,7 +23,7 @@ static HEADER_TITLE : &'static str = "Section header";
 
 impl Widget for SectionHeader {
     fn get_height(&self) -> i32 {
-        12
+        self.fields.iter().map(|f| f.get_height()).sum::<i32>() + 2
     }
 
     fn focus(&mut self) -> bool {
@@ -67,25 +69,29 @@ pub fn mk_sec_hdr_fields(hdrs : &Vec<elf::SectionHeader>, string_table : &Option
             current_field: 1,
         }));
 
-        if hdr.name != 0 {
-            let string = {
-                if let Some(ref tbl) = *string_table {
-                    if let Some(bytes) = elf::index_string_table(tbl, hdr.name as usize) {
-                        if let Ok(str) = str::from_utf8(bytes) {
-                            str.to_string()
+        let name_string =
+            if hdr.name == 0 {
+                None
+            } else {
+                Some(
+                    if let Some(ref tbl) = *string_table {
+                        if let Some(bytes) = elf::index_string_table(tbl, hdr.name as usize) {
+                            if let Ok(str) = str::from_utf8(bytes) {
+                                str.to_string()
+                            } else {
+                                "<Non-utf8 string>".to_string()
+                            }
                         } else {
-                            "<Non-utf8 string>".to_string()
+                            "<Can't read from string table>".to_string()
                         }
                     } else {
-                        "<Can't read from string table>".to_string()
-                    }
-                } else {
-                    "<String table missing>".to_string()
-                }
+                        "<String table missing>".to_string()
+                    })
             };
 
+        for s in name_string.iter() {
             fields.push(Box::new(field::ElfHdrField_str {
-                value: string,
+                value: s.clone(),
                 title: "Name:".to_string(),
                 num_fields: 10,
                 current_field: 2,
@@ -147,6 +153,10 @@ pub fn mk_sec_hdr_fields(hdrs : &Vec<elf::SectionHeader>, string_table : &Option
             num_fields: 10,
             current_field: 10,
         }));
+
+        if name_string == Some(".text".to_owned()) {
+            fields.push(Box::new(DisasView::new(hdr.contents)));
+        }
 
         headers.push(Box::new(SectionHeader {
             fields: fields,

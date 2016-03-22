@@ -1,4 +1,5 @@
 #![feature(alloc_system)]
+#![feature(iter_arith)]
 #![feature(time2)]
 
 extern crate alloc_system;
