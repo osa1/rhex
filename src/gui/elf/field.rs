@@ -5,14 +5,10 @@ use std::borrow::Borrow;
 use std::fmt::LowerHex;
 
 use colors::Color;
+use gui::elf::widget::{Widget, WidgetRet};
 use parser::elf;
 
 use ncurses as nc;
-
-pub trait Field {
-    /// Render the field.
-    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Some generic field structs for repeatedly-used field types
@@ -25,7 +21,7 @@ pub struct ElfHdrField_hex<T : LowerHex> {
     pub current_field : usize,
 }
 
-impl<T : LowerHex> Field for ElfHdrField_hex<T> {
+impl<T : LowerHex> Widget for ElfHdrField_hex<T> {
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         nc::mvaddstr(pos_y, pos_x, self.title.borrow());
 
@@ -37,13 +33,33 @@ impl<T : LowerHex> Field for ElfHdrField_hex<T> {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+pub struct ElfHdrField_str {
+    pub value : String,
+    pub title : String,
+
+    pub num_fields : usize,
+    pub current_field : usize,
+}
+
+impl Widget for ElfHdrField_str {
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
+        nc::mvaddstr(pos_y, pos_x, self.title.borrow());
+
+        with_attr!(focus, nc::A_BOLD() | Color::CursorFocus.attr(), {
+            nc::mvaddstr(pos_y, pos_x + self.title.len() as i32 + 2, self.value.borrow());
+        });
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Class
 
 struct ElfHdrField_Class {
     value : elf::Class,
 }
 
-impl Field for ElfHdrField_Class {
+impl Widget for ElfHdrField_Class {
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let class_str = "Class:";
 
@@ -67,7 +83,7 @@ struct ElfHdrField_Endianness {
     value : elf::Endianness,
 }
 
-impl Field for ElfHdrField_Endianness {
+impl Widget for ElfHdrField_Endianness {
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let endianness_str = "Endianness:";
 
@@ -91,7 +107,7 @@ struct ElfHdrField_ABI {
     value : elf::OsABI,
 }
 
-impl Field for ElfHdrField_ABI {
+impl Widget for ElfHdrField_ABI {
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let abi_str = "ABI:";
 
@@ -111,7 +127,7 @@ struct ElfHdrField_ObjType {
     value : elf::ObjType,
 }
 
-impl Field for ElfHdrField_ObjType {
+impl Widget for ElfHdrField_ObjType {
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let obj_type_str = "Object type:";
 
@@ -131,7 +147,7 @@ struct ElfHdrField_ISA {
     value : elf::ISA,
 }
 
-impl Field for ElfHdrField_ISA {
+impl Widget for ElfHdrField_ISA {
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let isa_str = "ISA:";
 
@@ -147,7 +163,7 @@ impl Field for ElfHdrField_ISA {
 ////////////////////////////////////////////////////////////////////////////////
 // Generate field vector
 
-pub fn mk_elf_hdr_fields(hdr : &elf::ELFHeader) -> Vec<Box<Field>> {
+pub fn mk_elf_hdr_fields(hdr : &elf::ELFHeader) -> Vec<Box<Widget>> {
     vec![
         Box::new(ElfHdrField_Class { value: hdr.class }),
         Box::new(ElfHdrField_Endianness { value: hdr.endianness }),

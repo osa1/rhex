@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 
 use colors::Color;
 use gui::elf::field;
+use gui::elf::widget::{Widget, WidgetRet};
 use parser::elf;
 use utils::draw_box;
 
@@ -14,7 +15,7 @@ struct ProgramHeaderField {
     value : elf::ProgramHeaderType,
 }
 
-impl field::Field for ProgramHeaderField {
+impl Widget for ProgramHeaderField {
     fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, focus : bool) {
         let ty_str = "Header type:";
 
@@ -41,27 +42,24 @@ impl field::Field for ProgramHeaderField {
 ////////////////////////////////////////////////////////////////////////////////
 
 pub struct ProgramHeader {
-    fields : Vec<Box<field::Field>>,
+    fields : Vec<Box<Widget>>,
     cursor : usize,
     has_focus : bool,
 }
 
-pub enum ProgramHeaderRet {
-    LostFocus, KeyHandled, KeyIgnored,
-}
-
 static HEADER_TITLE : &'static str = "Program header";
 
-impl ProgramHeader {
-    pub fn get_height(&self) -> i32 {
-        8
+impl Widget for ProgramHeader {
+    fn get_height(&self) -> i32 {
+        10
     }
 
-    pub fn focus(&mut self) {
+    fn focus(&mut self) -> bool {
         self.has_focus = true;
+        true
     }
 
-    pub fn keypressed(&mut self, key : i32) -> ProgramHeaderRet {
+    fn keypressed(&mut self, key : i32) -> WidgetRet {
         if self.has_focus {
             self.keypressed_focus(key)
         } else {
@@ -69,39 +67,7 @@ impl ProgramHeader {
         }
     }
 
-    fn keypressed_focus(&mut self, key : i32) -> ProgramHeaderRet {
-        if key == 27 {
-            self.has_focus = false;
-            ProgramHeaderRet::LostFocus
-        }
-
-        else if key == nc::KEY_UP || key == b'k' as i32 {
-            if self.cursor > 0 {
-                self.cursor -= 1;
-            }
-            ProgramHeaderRet::KeyHandled
-        }
-
-        else if key == nc::KEY_DOWN || key == b'j' as i32 {
-            if self.cursor < self.fields.len() - 1 {
-                self.cursor += 1;
-            }
-            ProgramHeaderRet::KeyHandled
-        }
-
-        else {
-            ProgramHeaderRet::KeyHandled
-        }
-    }
-
-    fn keypressed_no_focus(&mut self, key : i32) -> ProgramHeaderRet {
-        ProgramHeaderRet::KeyIgnored
-    }
-
-    pub fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, highlight : bool) {
-        // FIXME: Figure out how to export/import macros and use with_attr!
-        // here.
-
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, highlight : bool) {
         if self.has_focus {
             nc::attron(Color::FrameActive.attr());
         } else if highlight {
@@ -123,11 +89,42 @@ impl ProgramHeader {
     }
 }
 
-pub fn mk_pgm_hdr_fields(hdrs : &Vec<elf::ProgramHeader>) -> Vec<ProgramHeader> {
-    let mut headers = Vec::with_capacity(hdrs.len());
+impl ProgramHeader {
+    fn keypressed_focus(&mut self, key : i32) -> WidgetRet {
+        if key == 27 {
+            self.has_focus = false;
+            WidgetRet::LostFocus
+        }
+
+        else if key == nc::KEY_UP || key == b'k' as i32 {
+            if self.cursor > 0 {
+                self.cursor -= 1;
+            }
+            WidgetRet::KeyHandled
+        }
+
+        else if key == nc::KEY_DOWN || key == b'j' as i32 {
+            if self.cursor < self.fields.len() - 1 {
+                self.cursor += 1;
+            }
+            WidgetRet::KeyHandled
+        }
+
+        else {
+            WidgetRet::KeyHandled
+        }
+    }
+
+    fn keypressed_no_focus(&mut self, key : i32) -> WidgetRet {
+        WidgetRet::KeyIgnored
+    }
+}
+
+pub fn mk_pgm_hdr_fields(hdrs : &Vec<elf::ProgramHeader>) -> Vec<Box<Widget>> {
+    let mut headers : Vec<Box<Widget>> = Vec::with_capacity(hdrs.len());
 
     for hdr in hdrs {
-        let mut fields : Vec<Box<field::Field>> = Vec::with_capacity(9);
+        let mut fields : Vec<Box<Widget>> = Vec::with_capacity(9);
 
         fields.push(Box::new(ProgramHeaderField {
             value: hdr.ty,
@@ -182,11 +179,11 @@ pub fn mk_pgm_hdr_fields(hdrs : &Vec<elf::ProgramHeader>) -> Vec<ProgramHeader> 
             current_field: 6,
         }));
 
-        headers.push(ProgramHeader {
+        headers.push(Box::new(ProgramHeader {
             fields: fields,
             cursor: 0,
             has_focus: false,
-        });
+        }));
     }
 
     headers
