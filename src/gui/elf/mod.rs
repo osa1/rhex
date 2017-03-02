@@ -1,7 +1,7 @@
 mod field;
 mod program_header;
 mod section_header;
-pub mod widget;
+mod widget;
 
 use std::borrow::Borrow;
 

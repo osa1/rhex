@@ -1,7 +1,6 @@
 #[macro_use]
 pub mod macros;
 
-pub mod disas;
 pub mod elf;
 pub mod hex;
 

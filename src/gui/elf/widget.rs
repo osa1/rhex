@@ -11,7 +11,7 @@ pub trait Widget {
         WidgetRet::KeyIgnored
     }
 
-    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, highlight : bool);
+    fn draw(&self, pos_x : i32, pos_y : i32, width : i32, height : i32, higlight : bool);
 }
 
 pub enum WidgetRet {

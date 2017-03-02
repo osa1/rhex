@@ -6,4 +6,3 @@ authors = ["Ömer Sinan Ağacan <omeragacan@gmail.com>"]
 [dependencies]
 libc = "0.2.4"
 ncurses = { git = "https://github.com/jeaye/ncurses-rs.git" }
-capstone = { git = "https://github.com/richo/capstone-rs.git" }
