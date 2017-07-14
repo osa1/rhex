@@ -1,8 +1,5 @@
 use std::cmp;
 
-// Is there a better way to make writeln! working with std::io::stderr()?
-use std::io::prelude::*;
-
 use colors::Color;
 use utils::*;
 
@@ -35,15 +32,6 @@ enum NibbleCursor {
     MS,
     /// Less significant part
     LS,
-}
-
-impl NibbleCursor {
-    fn switch(self) -> NibbleCursor {
-        match self {
-            NibbleCursor::MS => NibbleCursor::LS,
-            NibbleCursor::LS => NibbleCursor::MS,
-        }
-    }
 }
 
 pub struct SearchOverlay<'overlay> {
@@ -152,7 +140,7 @@ impl<'overlay> SearchOverlay<'overlay> {
         let mut col = 1;
         let mut row = 1;
 
-        for (byte_offset, byte) in self.buffer.iter().enumerate() {
+        for byte in self.buffer.iter() {
             if col + 1 >= width {
                 col  = 1;
                 row += 1;
@@ -168,7 +156,7 @@ impl<'overlay> SearchOverlay<'overlay> {
         }
 
         // Draw cursor
-        let mut bytes_per_line = width / 3;
+        let bytes_per_line = width / 3;
 
         let cursor_x_byte = self.byte_cursor as i32 % bytes_per_line;
         let cursor_x      = cursor_x_byte * 3 + 1;

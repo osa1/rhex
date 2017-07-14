@@ -2,8 +2,6 @@ use std::borrow::Borrow;
 use std::cmp;
 use std::ptr;
 
-use std::io::prelude::*;
-
 use gui::hex::HexGui;
 
 use colors::Color;
@@ -107,10 +105,6 @@ impl<'grid> HexGrid<'grid> {
             }
         }
         self.cursor_y += 1;
-    }
-
-    pub fn focus(&mut self, focus : bool) {
-        self.has_focus = focus;
     }
 
     pub fn get_byte_idx(&self) -> i32 {

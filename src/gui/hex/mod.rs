@@ -14,9 +14,6 @@ use self::search::{SearchOverlay, SearchRet};
 
 use gui::GuiRet;
 
-use colors;
-use utils::*;
-
 use std::time::Duration;
 use std::time::Instant;
 
@@ -68,10 +65,10 @@ impl<'gui> HexGui<'gui> {
 
         let unit_column = grid_width / 4;
 
-        let mut hex_grid = HexGrid::new( unit_column * 3, height - 1,
-                                         addr_len + 2, 0,
-                                         contents,
-                                         path );
+        let hex_grid = HexGrid::new( unit_column * 3, height - 1,
+                                     addr_len + 2, 0,
+                                     contents,
+                                     path );
 
         let lines = Lines::new( hex_grid.bytes_per_line(),
                                 contents.len() as i32,
@@ -105,10 +102,6 @@ impl<'gui> HexGui<'gui> {
         self.hex_grid.set_gui(self_ptr);
     }
 
-    pub fn get_hex_grid(&mut self) -> &'gui mut HexGrid {
-        &mut self.hex_grid
-    }
-
     pub fn get_lines(&mut self) -> &mut Lines {
         &mut self.lines
     }
@@ -134,11 +127,6 @@ impl<'gui> HexGui<'gui> {
             Overlay::SearchOverlay(ref o) => o.draw(),
             Overlay::GotoOverlay(ref o) => o.draw(),
         }
-    }
-
-    pub fn notify(&mut self, msg : &[u8], dur : Duration) {
-        self.info_line.set_text(msg);
-        self.timed_events.push((dur, TimedEvent::RestoreInfoLine));
     }
 
     fn run_timed_events(&mut self, dt : Duration) {
@@ -218,7 +206,7 @@ impl<'gui> HexGui<'gui> {
 
                 Overlay::SearchOverlay(ref mut o) => {
                     match o.keypressed(ch) {
-                        SearchRet::Highlight{ focus: f, all_bytes: bs, len: l } => {
+                        SearchRet::Highlight{ all_bytes: bs, len: l, .. } => {
                             self.highlight = bs;
                             self.highlight_len = l;
                             reset_overlay = true;
@@ -303,7 +291,7 @@ impl<'gui> HexGui<'gui> {
     fn mk_goto_overlay(&mut self) {
         let mut scr_x = 0;
         let mut scr_y = 0;
-        nc::getmaxyx(nc::stdscr, &mut scr_y, &mut scr_x);
+        nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
 
         self.overlay =
             Overlay::GotoOverlay(GotoOverlay::new( scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4 ));
@@ -312,7 +300,7 @@ impl<'gui> HexGui<'gui> {
     fn mk_search_overlay(&mut self) {
         let mut scr_x = 0;
         let mut scr_y = 0;
-        nc::getmaxyx(nc::stdscr, &mut scr_y, &mut scr_x);
+        nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
 
         self.overlay =
             Overlay::SearchOverlay(

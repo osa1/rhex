@@ -86,7 +86,7 @@ impl Lines {
         }
     }
 
-    fn mk_hex_string(&self, mut addr : i32, ret : &mut String) {
+    fn mk_hex_string(&self, addr : i32, ret : &mut String) {
         ret.clear();
 
         // for debugging purposes:

@@ -2,7 +2,13 @@
 name = "rhex"
 version = "0.1.0"
 authors = ["Ömer Sinan Ağacan <omeragacan@gmail.com>"]
+description = "A rudimentary hex editor"
+license = "MIT"
+repository = "https://github.com/osa1/rhex"
 
 [dependencies]
 libc = "0.2.4"
-ncurses = { git = "https://github.com/jeaye/ncurses-rs.git" }
+ncurses = "5.86.0"
+
+[profile.release]
+lto = true
