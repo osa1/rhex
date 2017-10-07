@@ -176,8 +176,6 @@ impl<'gui> HexGui<'gui> {
                 continue;
             } else if ch == b'q' as i32 {
                 return GuiRet::Break;
-            } else if ch == b'\t' as i32 {
-                return GuiRet::Switch;
             }
 
             let mut reset_overlay = false;

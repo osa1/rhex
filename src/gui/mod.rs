@@ -5,13 +5,10 @@ pub mod hex;
 
 pub struct Gui<'gui> {
     hex_gui : hex::HexGui<'gui>,
-    gui_mod : Mod,
 }
 
-enum Mod { Hex }
-
 pub enum GuiRet {
-    Break, Switch
+    Break
 }
 
 impl<'gui> Gui<'gui> {
@@ -19,7 +16,6 @@ impl<'gui> Gui<'gui> {
                        width : i32, height : i32, pos_x : i32, pos_y : i32) -> Gui<'gui> {
         Gui {
             hex_gui: hex::HexGui::new(contents, path, width, height, pos_x, pos_y),
-            gui_mod: Mod::Hex,
         }
     }
 
@@ -27,13 +23,8 @@ impl<'gui> Gui<'gui> {
         self.hex_gui.init();
 
         loop {
-            match self.gui_mod {
-                Mod::Hex => {
-                    match self.hex_gui.mainloop() {
-                        GuiRet::Break => { break; },
-                        GuiRet::Switch => {},
-                    }
-                },
+            match self.hex_gui.mainloop() {
+                GuiRet::Break => { break; },
             }
         }
     }
