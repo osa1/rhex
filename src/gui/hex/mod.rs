@@ -186,14 +186,16 @@ impl<'gui> HexGui<'gui> {
             if ch == nc_cs::ERR {
                 // timeout
                 continue;
-            } else if ch == b'q' as i32 {
-                return GuiRet::Break;
             }
 
             let mut reset_overlay = false;
             match self.overlay {
-                Overlay::NoOverlay =>
-                    self.keypressed(ch),
+                Overlay::NoOverlay => {
+                    if ch == b'q' as i32 {
+                        return GuiRet::Break;
+                    }
+                    self.keypressed(ch)
+                }
 
                 Overlay::GotoOverlay(ref mut o) => {
                     match o.keypressed(ch) {
