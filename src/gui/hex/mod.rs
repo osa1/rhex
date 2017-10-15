@@ -33,7 +33,7 @@ pub struct HexGui<'gui> {
     highlight: Vec<usize>,
     highlight_len: usize,
 
-    timed_events : Vec<(Duration, TimedEvent)>
+    timed_events: Vec<(Duration, TimedEvent)>,
 }
 
 pub enum Overlay<'overlay> {
@@ -50,8 +50,14 @@ enum TimedEvent {
 // will cause a segfault.
 
 impl<'gui> HexGui<'gui> {
-    pub fn new(contents: &'gui Vec<u8>, path : &'gui str,
-               width : i32, height : i32, pos_x : i32, pos_y : i32) -> HexGui<'gui> {
+    pub fn new(
+        contents: &'gui Vec<u8>,
+        path: &'gui str,
+        width: i32,
+        height: i32,
+        pos_x: i32,
+        pos_y: i32,
+    ) -> HexGui<'gui> {
         // Calculate cols needed for showing the addresses
         let max_address = contents.len();
         let hex_digits_needed = (max_address as f32).log(16.0f32) as i32;
@@ -65,22 +71,26 @@ impl<'gui> HexGui<'gui> {
 
         let unit_column = grid_width / 4;
 
-        let hex_grid = HexGrid::new( unit_column * 3, height - 1,
-                                     addr_len + 2, 0,
-                                     contents,
-                                     path );
+        let hex_grid = HexGrid::new(unit_column * 3, height - 1, addr_len + 2, 0, contents, path);
 
-        let lines = Lines::new( hex_grid.bytes_per_line(),
-                                contents.len() as i32,
-                                pos_x, pos_y, addr_len as i32, height );
+        let lines = Lines::new(
+            hex_grid.bytes_per_line(),
+            contents.len() as i32,
+            pos_x,
+            pos_y,
+            addr_len as i32,
+            height,
+        );
 
-        let ascii_view = AsciiView::new( unit_column, height - 1,
-                                         unit_column * 3 + 1 + addr_len + 2,
-                                         0,
-                                         contents );
+        let ascii_view = AsciiView::new(
+            unit_column,
+            height - 1,
+            unit_column * 3 + 1 + addr_len + 2,
+            0,
+            contents,
+        );
 
-        let info_line = InfoLine::new( width, 0, height - 1,
-                                       format!("{} - 0: 0", path).as_bytes() );
+        let info_line = InfoLine::new(width, 0, height - 1, format!("{} - 0: 0", path).as_bytes());
 
         HexGui {
             hex_grid: hex_grid,
@@ -123,13 +133,16 @@ impl<'gui> HexGui<'gui> {
         nc::refresh();
 
         match self.overlay {
-            Overlay::NoOverlay => {},
-            Overlay::SearchOverlay(ref o) => o.draw(),
-            Overlay::GotoOverlay(ref o) => o.draw(),
+            Overlay::NoOverlay =>
+                {}
+            Overlay::SearchOverlay(ref o) =>
+                o.draw(),
+            Overlay::GotoOverlay(ref o) =>
+                o.draw(),
         }
     }
 
-    fn run_timed_events(&mut self, dt : Duration) {
+    fn run_timed_events(&mut self, dt: Duration) {
         let zero = Duration::new(0, 0);
 
         // dat syntax tho
@@ -144,7 +157,6 @@ impl<'gui> HexGui<'gui> {
                         self.hex_grid.update_info_line();
                     }
                 }
-
             } else {
                 *event_dur = *event_dur - dt;
             }
@@ -180,7 +192,8 @@ impl<'gui> HexGui<'gui> {
 
             let mut reset_overlay = false;
             match self.overlay {
-                Overlay::NoOverlay => self.keypressed(ch),
+                Overlay::NoOverlay =>
+                    self.keypressed(ch),
 
                 Overlay::GotoOverlay(ref mut o) => {
                     match o.keypressed(ch) {
@@ -188,31 +201,37 @@ impl<'gui> HexGui<'gui> {
                             self.hex_grid.move_cursor_offset(offset);
                             // self.overlay = Overlay::NoOverlay;
                             reset_overlay = true;
-                        },
+                        }
                         OverlayRet::GotoBeginning => {
                             self.hex_grid.move_cursor_offset(0);
                             // self.overlay = Overlay::NoOverlay;
                             reset_overlay = true;
-                        },
-                        OverlayRet::Continue => {},
+                        }
+                        OverlayRet::Continue =>
+                            {}
                         OverlayRet::Abort => {
                             // self.overlay = Overlay::NoOverlay;
                             reset_overlay = true;
-                        },
+                        }
                     }
-                },
+                }
 
                 Overlay::SearchOverlay(ref mut o) => {
                     match o.keypressed(ch) {
-                        SearchRet::Highlight{ all_bytes: bs, len: l, .. } => {
+                        SearchRet::Highlight {
+                            all_bytes: bs,
+                            len: l,
+                            ..
+                        } => {
                             self.highlight = bs;
                             self.highlight_len = l;
                             reset_overlay = true;
-                        },
+                        }
                         SearchRet::Abort => {
                             reset_overlay = true;
-                        },
-                        SearchRet::Continue => { /* nothing to do */ }
+                        }
+                        SearchRet::Continue =>
+                        { /* nothing to do */ }
                     }
                 }
             };
@@ -223,16 +242,12 @@ impl<'gui> HexGui<'gui> {
         }
     }
 
-    fn keypressed(&mut self, ch : i32) {
+    fn keypressed(&mut self, ch: i32) {
         if ch == b'g' as i32 {
             self.mk_goto_overlay();
-        }
-
-        else if ch == b'/' as i32 {
+        } else if ch == b'/' as i32 {
             self.mk_search_overlay();
-        }
-
-        else if ch == b'z' as i32 {
+        } else if ch == b'z' as i32 {
             let next_ch = self.get_char();
             if next_ch == b'z' as i32 {
                 self.hex_grid.try_center_scroll();
@@ -241,9 +256,7 @@ impl<'gui> HexGui<'gui> {
             } else {
                 // ignore
             }
-        }
-
-        else if ch == b'n' as i32 {
+        } else if ch == b'n' as i32 {
             let hls = &self.highlight;
             let byte_idx = self.hex_grid.get_byte_idx() as usize;
             for &hl_offset in hls {
@@ -256,9 +269,7 @@ impl<'gui> HexGui<'gui> {
             if let Some(&hl_offset) = hls.get(0) {
                 self.hex_grid.move_cursor_offset(hl_offset as i32);
             }
-        }
-
-        else if ch == b'N' as i32 {
+        } else if ch == b'N' as i32 {
             let hls = &self.highlight;
             let byte_idx = self.hex_grid.get_byte_idx() as usize;
             for &hl_offset in hls.iter().rev() {
@@ -271,18 +282,19 @@ impl<'gui> HexGui<'gui> {
             if let Some(&hl_offset) = hls.get(hls.len() - 1) {
                 self.hex_grid.move_cursor_offset(hl_offset as i32);
             }
-        }
-
-        else {
+        } else {
             self.hex_grid.keypressed(ch);
         }
     }
 
     fn get_char(&self) -> i32 {
         match self.overlay {
-            Overlay::NoOverlay => nc::getch(),
-            Overlay::GotoOverlay(ref o) => o.get_char(),
-            Overlay::SearchOverlay(ref o) => o.get_char(),
+            Overlay::NoOverlay =>
+                nc::getch(),
+            Overlay::GotoOverlay(ref o) =>
+                o.get_char(),
+            Overlay::SearchOverlay(ref o) =>
+                o.get_char(),
         }
     }
 
@@ -292,7 +304,7 @@ impl<'gui> HexGui<'gui> {
         nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
 
         self.overlay =
-            Overlay::GotoOverlay(GotoOverlay::new( scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4 ));
+            Overlay::GotoOverlay(GotoOverlay::new(scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4));
     }
 
     fn mk_search_overlay(&mut self) {
@@ -300,9 +312,13 @@ impl<'gui> HexGui<'gui> {
         let mut scr_y = 0;
         nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
 
-        self.overlay =
-            Overlay::SearchOverlay(
-                SearchOverlay::new( scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4, &self.contents ));
+        self.overlay = Overlay::SearchOverlay(SearchOverlay::new(
+            scr_x / 2,
+            scr_y / 2,
+            scr_x / 4,
+            scr_y / 4,
+            &self.contents,
+        ));
     }
 }
 

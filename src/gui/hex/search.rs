@@ -25,7 +25,10 @@ pub enum SearchRet {
     Continue,
 }
 
-enum SearchMode { Ascii, Hex }
+enum SearchMode {
+    Ascii,
+    Hex,
+}
 
 enum NibbleCursor {
     /// More significant part
@@ -47,7 +50,7 @@ pub struct SearchOverlay<'overlay> {
     byte_cursor: usize,
     nibble_cursor: NibbleCursor,
 
-    contents: &'overlay Vec<u8>
+    contents: &'overlay Vec<u8>,
 }
 
 impl<'overlay> Drop for SearchOverlay<'overlay> {
@@ -57,8 +60,13 @@ impl<'overlay> Drop for SearchOverlay<'overlay> {
 }
 
 impl<'overlay> SearchOverlay<'overlay> {
-    pub fn new(width: i32, height: i32, pos_x: i32, pos_y: i32, contents: &'overlay Vec<u8>)
-               -> SearchOverlay<'overlay> {
+    pub fn new(
+        width: i32,
+        height: i32,
+        pos_x: i32,
+        pos_y: i32,
+        contents: &'overlay Vec<u8>,
+    ) -> SearchOverlay<'overlay> {
         let width_ = cmp::min(width, 50);
         let height_ = cmp::min(height, 10);
 
@@ -85,7 +93,13 @@ impl<'overlay> SearchOverlay<'overlay> {
         nc::box_(self.win, 0, 0);
 
         nc::mvwaddch(self.win, 0, self.width / 2, nc::ACS_TTEE());
-        nc::mvwvline(self.win, 1, self.width / 2, nc::ACS_VLINE(), self.height - 2);
+        nc::mvwvline(
+            self.win,
+            1,
+            self.width / 2,
+            nc::ACS_VLINE(),
+            self.height - 2,
+        );
         nc::mvwaddch(self.win, self.height - 1, self.width / 2, nc::ACS_BTEE());
 
         self.draw_hex();
@@ -109,23 +123,30 @@ impl<'overlay> SearchOverlay<'overlay> {
         let cursor_x = (self.byte_cursor % width) + 1;
         let cursor_y = self.byte_cursor / width;
 
-        let byte =
-            if self.byte_cursor >= self.buffer.len() {
-                b' '
-            } else {
-                self.buffer[self.byte_cursor]
-            };
+        let byte = if self.byte_cursor >= self.buffer.len() {
+            b' '
+        } else {
+            self.buffer[self.byte_cursor]
+        };
 
         match self.mode {
-            SearchMode::Ascii => { nc::wattron(self.win, Color::CursorFocus.attr()); },
-            SearchMode::Hex   => { nc::wattron(self.win, Color::CursorNoFocus.attr()); },
+            SearchMode::Ascii => {
+                nc::wattron(self.win, Color::CursorFocus.attr());
+            }
+            SearchMode::Hex => {
+                nc::wattron(self.win, Color::CursorNoFocus.attr());
+            }
         }
 
         nc::mvwaddch(self.win, cursor_y as i32 + 1, cursor_x as i32, byte as u64);
 
         match self.mode {
-            SearchMode::Ascii => { nc::wattroff(self.win, Color::CursorFocus.attr()); },
-            SearchMode::Hex   => { nc::wattroff(self.win, Color::CursorNoFocus.attr()); },
+            SearchMode::Ascii => {
+                nc::wattroff(self.win, Color::CursorFocus.attr());
+            }
+            SearchMode::Hex => {
+                nc::wattroff(self.win, Color::CursorNoFocus.attr());
+            }
         }
     }
 
@@ -134,7 +155,7 @@ impl<'overlay> SearchOverlay<'overlay> {
         // here should be very simple as we don't have to deal with scrolling,
         // jumping around etc.
         let start_column = self.width / 2;
-        let width        = self.width / 2 - 1;
+        let width = self.width / 2 - 1;
 
         // We skip first row and column as it's occupied by the window border
         let mut col = 1;
@@ -142,14 +163,14 @@ impl<'overlay> SearchOverlay<'overlay> {
 
         for byte in self.buffer.iter() {
             if col + 1 >= width {
-                col  = 1;
+                col = 1;
                 row += 1;
             }
 
             let nibble1 = hex_char(*byte >> 4);
             let nibble2 = hex_char(*byte & 0b00001111);
 
-            nc::mvwaddch(self.win, row, start_column + col,     nibble1 as u64);
+            nc::mvwaddch(self.win, row, start_column + col, nibble1 as u64);
             nc::mvwaddch(self.win, row, start_column + col + 1, nibble2 as u64);
 
             col += 3;
@@ -159,38 +180,48 @@ impl<'overlay> SearchOverlay<'overlay> {
         let bytes_per_line = width / 3;
 
         let cursor_x_byte = self.byte_cursor as i32 % bytes_per_line;
-        let cursor_x      = cursor_x_byte * 3 + 1;
-        let cursor_x      =
-            match self.nibble_cursor {
-                NibbleCursor::MS => cursor_x,
-                NibbleCursor::LS => cursor_x + 1,
-            };
-        let cursor_y      = self.byte_cursor as i32 / bytes_per_line;
+        let cursor_x = cursor_x_byte * 3 + 1;
+        let cursor_x = match self.nibble_cursor {
+            NibbleCursor::MS =>
+                cursor_x,
+            NibbleCursor::LS =>
+                cursor_x + 1,
+        };
+        let cursor_y = self.byte_cursor as i32 / bytes_per_line;
 
-        let byte =
-            if self.byte_cursor >= self.buffer.len() {
-                b' ' as u8
-            } else {
-                match self.nibble_cursor {
-                    NibbleCursor::MS => hex_char(self.buffer[self.byte_cursor] >> 4),
-                    NibbleCursor::LS => hex_char(self.buffer[self.byte_cursor] & 0b00001111),
-                }
-            };
+        let byte = if self.byte_cursor >= self.buffer.len() {
+            b' ' as u8
+        } else {
+            match self.nibble_cursor {
+                NibbleCursor::MS =>
+                    hex_char(self.buffer[self.byte_cursor] >> 4),
+                NibbleCursor::LS =>
+                    hex_char(self.buffer[self.byte_cursor] & 0b00001111),
+            }
+        };
 
         match self.mode {
-            SearchMode::Hex   => { nc::wattron(self.win, Color::CursorFocus.attr()); },
-            SearchMode::Ascii => { nc::wattron(self.win, Color::CursorNoFocus.attr()); },
+            SearchMode::Hex => {
+                nc::wattron(self.win, Color::CursorFocus.attr());
+            }
+            SearchMode::Ascii => {
+                nc::wattron(self.win, Color::CursorNoFocus.attr());
+            }
         }
 
         nc::mvwaddch(self.win, cursor_y + 1, start_column + cursor_x, byte as u64);
 
         match self.mode {
-            SearchMode::Hex   => { nc::wattroff(self.win, Color::CursorFocus.attr()); },
-            SearchMode::Ascii => { nc::wattroff(self.win, Color::CursorNoFocus.attr()); },
+            SearchMode::Hex => {
+                nc::wattroff(self.win, Color::CursorFocus.attr());
+            }
+            SearchMode::Ascii => {
+                nc::wattroff(self.win, Color::CursorNoFocus.attr());
+            }
         }
     }
 
-    pub fn keypressed(&mut self, ch : i32) -> SearchRet {
+    pub fn keypressed(&mut self, ch: i32) -> SearchRet {
         // TODO: We should be able to move cursor and insert at the cursor
         // position.
 
@@ -198,9 +229,9 @@ impl<'overlay> SearchOverlay<'overlay> {
             // FIXME: This part is copied from goto
 
             // Is it escape or ALT + something?
-            nc::nodelay( self.win, true );
-            let next_ch = nc::wgetch( self.win );
-            nc::nodelay( self.win, false );
+            nc::nodelay(self.win, true);
+            let next_ch = nc::wgetch(self.win);
+            nc::nodelay(self.win, false);
 
             if next_ch == -1 {
                 // It's escape, abort
@@ -209,9 +240,7 @@ impl<'overlay> SearchOverlay<'overlay> {
                 // It's ALT + something, but we don't handle that
                 SearchRet::Continue
             }
-        }
-
-        else if ch == 10 || ch == b'\n' as i32 {
+        } else if ch == 10 || ch == b'\n' as i32 {
             if self.buffer.len() != 0 {
                 // do the search
                 let offsets = self.find_offsets();
@@ -223,75 +252,71 @@ impl<'overlay> SearchOverlay<'overlay> {
             } else {
                 SearchRet::Continue
             }
-        }
-
-        else if ch == b'\t' as i32 {
+        } else if ch == b'\t' as i32 {
             let new_sm = match self.mode {
-                SearchMode::Ascii => SearchMode::Hex,
-                SearchMode::Hex   => SearchMode::Ascii,
+                SearchMode::Ascii =>
+                    SearchMode::Hex,
+                SearchMode::Hex =>
+                    SearchMode::Ascii,
             };
 
             self.mode = new_sm;
             SearchRet::Continue
-        }
-
-        else {
+        } else {
             match self.mode {
                 SearchMode::Ascii => {
                     if ch == nc::KEY_BACKSPACE || ch == 127 {
                         match self.buffer.pop() {
-                            None => {},
-                            Some(_) => {
+                            None =>
+                                {}
+                            Some(_) =>
                                 if self.byte_cursor != 0 {
                                     self.byte_cursor -= 1;
-                                }
-                            }
+                                },
                         }
                     } else {
                         match ch {
-                            0 ... 0xFF => {
+                            0...0xFF => {
                                 self.buffer.push(ch as u8);
                                 self.byte_cursor += 1;
                                 self.nibble_cursor = NibbleCursor::MS;
-                            },
-                            _ => { /* ignore */ },
+                            }
+                            _ =>
+                            { /* ignore */ }
                         }
                     }
-                },
+                }
                 SearchMode::Hex => {
                     let nibble = match ch {
-                        65 ... 70 => {
+                        65...70 => {
                             // A ... F
                             Some((ch - 65 + 10) as u8)
-                        },
-                        97 ... 102 => {
+                        }
+                        97...102 => {
                             // a ... f
                             Some((ch - 97 + 10) as u8)
-                        },
-                        48 ... 57 => {
+                        }
+                        48...57 => {
                             // 0 ... 9
                             Some((ch - 48) as u8)
-                        },
-                        _ => { None }
+                        }
+                        _ =>
+                            None,
                     };
 
                     if let Some(nibble) = nibble {
-                        let current_byte =
-                            if self.byte_cursor >= self.buffer.len() {
-                                0
-                            } else {
-                                self.buffer[self.byte_cursor]
-                            };
+                        let current_byte = if self.byte_cursor >= self.buffer.len() {
+                            0
+                        } else {
+                            self.buffer[self.byte_cursor]
+                        };
 
-                        let new_byte =
-                            match self.nibble_cursor {
-                                NibbleCursor::MS => {
-                                    (current_byte & 0b00001111) | (nibble << 4)
-                                },
-                                NibbleCursor::LS => {
-                                    (current_byte & 0b11110000) | nibble
-                                }
-                            };
+                        let new_byte = match self.nibble_cursor {
+                            NibbleCursor::MS =>
+                                (current_byte & 0b00001111) | (nibble << 4),
+                            NibbleCursor::LS =>
+                                (current_byte & 0b11110000) | nibble,
+                        };
 
                         if self.byte_cursor >= self.buffer.len() {
                             self.buffer.push(new_byte);
@@ -300,23 +325,22 @@ impl<'overlay> SearchOverlay<'overlay> {
                             self.buffer[self.byte_cursor] = new_byte;
 
                             match self.nibble_cursor {
-                                NibbleCursor::MS => { self.nibble_cursor = NibbleCursor::LS },
+                                NibbleCursor::MS =>
+                                    self.nibble_cursor = NibbleCursor::LS,
                                 NibbleCursor::LS => {
                                     self.nibble_cursor = NibbleCursor::MS;
                                     self.byte_cursor += 1;
                                 }
                             }
                         }
-                    }
-
-                    else if ch == nc::KEY_BACKSPACE || ch == 127 {
+                    } else if ch == nc::KEY_BACKSPACE || ch == 127 {
                         match self.nibble_cursor {
                             NibbleCursor::LS => {
                                 let byte = self.buffer[self.byte_cursor];
                                 self.buffer[self.byte_cursor] = byte & 0b11110000;
                                 self.nibble_cursor = NibbleCursor::MS;
-                            },
-                            NibbleCursor::MS => {
+                            }
+                            NibbleCursor::MS =>
                                 if self.byte_cursor >= self.buffer.len() && self.byte_cursor != 0 {
                                     self.byte_cursor -= 1;
                                     self.nibble_cursor = NibbleCursor::LS;
@@ -324,21 +348,19 @@ impl<'overlay> SearchOverlay<'overlay> {
                                     match self.buffer.pop() {
                                         None => {
                                             self.nibble_cursor = NibbleCursor::MS;
-                                        },
-                                        Some(_) => {
+                                        }
+                                        Some(_) =>
                                             if self.byte_cursor != 0 {
                                                 self.byte_cursor -= 1;
                                                 self.nibble_cursor = NibbleCursor::LS;
                                             } else {
                                                 self.nibble_cursor = NibbleCursor::MS;
-                                            }
-                                        }
+                                            },
                                     }
-                                }
-                            }
+                                },
                         }
                     };
-                },
+                }
             }
 
             SearchRet::Continue
@@ -360,7 +382,7 @@ impl<'overlay> SearchOverlay<'overlay> {
         while byte_offset < self.contents.len() {
             let byte = unsafe { *self.contents.get_unchecked(byte_offset) };
             if byte == first_byte {
-                if try_match(&self.contents[ byte_offset + 1 ..  ], &self.buffer[ 1 .. ]) {
+                if try_match(&self.contents[byte_offset + 1..], &self.buffer[1..]) {
                     ret.push(byte_offset);
                     byte_offset += self.buffer.len();
                     continue;
@@ -375,7 +397,7 @@ impl<'overlay> SearchOverlay<'overlay> {
     }
 }
 
-fn try_match(s1 : &[u8], s2 : &[u8]) -> bool {
+fn try_match(s1: &[u8], s2: &[u8]) -> bool {
     if s2.len() > s1.len() {
         false
     } else {

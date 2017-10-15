@@ -18,7 +18,7 @@ impl InfoLine {
             pos_x: pos_x,
             pos_y: pos_y,
             width: width,
-            text: text.to_vec()
+            text: text.to_vec(),
         }
     }
 
@@ -28,20 +28,25 @@ impl InfoLine {
     }
 
     pub fn draw(&self) {
-        let slice : &[u8] = self.text.borrow();
+        let slice: &[u8] = self.text.borrow();
 
-        nc::attron( Color::StatusBar.attr() );
+        nc::attron(Color::StatusBar.attr());
 
         unsafe {
-            nc::ll::mvaddnstr( self.pos_y, self.pos_x,
-                               slice.as_ptr() as *const i8,
-                               self.text.len() as i32 );
+            nc::ll::mvaddnstr(
+                self.pos_y,
+                self.pos_x,
+                slice.as_ptr() as *const i8,
+                self.text.len() as i32,
+            );
         }
 
-        for x in (self.pos_x + self.text.len() as i32) .. (self.pos_x + self.width + 1) {
-            unsafe { nc::ll::mvaddch( self.pos_y, x, b' ' as u64 ); }
+        for x in (self.pos_x + self.text.len() as i32)..(self.pos_x + self.width + 1) {
+            unsafe {
+                nc::ll::mvaddch(self.pos_y, x, b' ' as u64);
+            }
         }
 
-        nc::attroff( Color::StatusBar.attr() );
+        nc::attroff(Color::StatusBar.attr());
     }
 }

@@ -20,8 +20,13 @@ pub struct AsciiView<'view> {
 }
 
 impl<'view> AsciiView<'view> {
-    pub fn new(width : i32, height : i32, pos_x : i32, pos_y : i32, data: &'view Vec<u8>)
-               -> AsciiView<'view> {
+    pub fn new(
+        width: i32,
+        height: i32,
+        pos_x: i32,
+        pos_y: i32,
+        data: &'view Vec<u8>,
+    ) -> AsciiView<'view> {
         AsciiView {
             width: width,
             height: height,
@@ -35,7 +40,7 @@ impl<'view> AsciiView<'view> {
         }
     }
 
-    pub fn set_scroll(&mut self, scroll : i32) {
+    pub fn set_scroll(&mut self, scroll: i32) {
         self.scroll = scroll;
     }
 
@@ -45,26 +50,26 @@ impl<'view> AsciiView<'view> {
 
         let mut hl_idx = 0;
 
-        'outer:
-        for row in self.scroll .. self.scroll + rows {
-            for col in 0 .. cols {
+        'outer: for row in self.scroll..self.scroll + rows {
+            for col in 0..cols {
                 let byte_idx = (row * cols + col) as usize;
                 if let Some(&byte) = self.data.get(byte_idx) {
-                    let ch =
-                        if byte >= 32 && byte <= 126 {
-                            byte
-                        } else {
-                            b'.'
-                        };
+                    let ch = if byte >= 32 && byte <= 126 {
+                        byte
+                    } else {
+                        b'.'
+                    };
 
                     while hl_idx < hl.len() && hl[hl_idx] + hl_len < byte_idx {
                         hl_idx += 1;
                     }
 
                     let attr = self.cursor_x == col && self.cursor_y == row;
-                    let color_attr =
-                        if self.has_focus { Color::CursorFocus.attr() }
-                        else { Color::CursorNoFocus.attr() };
+                    let color_attr = if self.has_focus {
+                        Color::CursorFocus.attr()
+                    } else {
+                        Color::CursorNoFocus.attr()
+                    };
 
                     let hl_attr = {
                         if let Some(&hl_offset) = hl.get(hl_idx) {
@@ -79,19 +84,17 @@ impl<'view> AsciiView<'view> {
                     };
 
                     if attr {
-                        nc::attron( nc::A_BOLD() | color_attr );
+                        nc::attron(nc::A_BOLD() | color_attr);
                     } else if hl_attr != 0 {
-                        nc::attron( hl_attr );
+                        nc::attron(hl_attr);
                     }
 
-                    nc::mvaddch( self.pos_y + row - self.scroll,
-                                 self.pos_x + col,
-                                 ch as u64 );
+                    nc::mvaddch(self.pos_y + row - self.scroll, self.pos_x + col, ch as u64);
 
                     if attr {
-                        nc::attroff( nc::A_BOLD() | color_attr );
+                        nc::attroff(nc::A_BOLD() | color_attr);
                     } else if hl_attr != 0 {
-                        nc::attroff( hl_attr );
+                        nc::attroff(hl_attr);
                     }
                 } else {
                     break 'outer;
@@ -100,14 +103,14 @@ impl<'view> AsciiView<'view> {
         }
     }
 
-    pub fn move_cursor_offset(&mut self, byte_idx : i32) {
+    pub fn move_cursor_offset(&mut self, byte_idx: i32) {
         let cursor_y = byte_idx / self.width;
         let cursor_x = byte_idx % self.width;
 
         if cursor_y > self.scroll + self.height - 3 {
             self.scroll = cursor_y - (self.height - 3);
         } else if cursor_y < self.scroll + 2 {
-            self.scroll = cmp::max( cursor_y - 2, 0 );
+            self.scroll = cmp::max(cursor_y - 2, 0);
         }
 
         self.cursor_y = cursor_y;

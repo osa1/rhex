@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #[inline]
-pub fn hex_char(nibble : u8) -> u8 {
+pub fn hex_char(nibble: u8) -> u8 {
     if nibble < 10 {
         48 + nibble
     } else {

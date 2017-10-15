@@ -7,23 +7,29 @@ use utils;
 use ncurses as nc;
 
 pub struct Lines {
-    bytes_per_line : i32,
-    length : i32,
+    bytes_per_line: i32,
+    length: i32,
 
-    pos_x : i32,
-    pos_y : i32,
-    width : i32,
-    height : i32,
+    pos_x: i32,
+    pos_y: i32,
+    width: i32,
+    height: i32,
 
     /// Byte offset (aka. address)
-    cursor : i32,
+    cursor: i32,
 
-    scroll : i32,
+    scroll: i32,
 }
 
 impl Lines {
-    pub fn new(bytes_per_line : i32, length : i32,
-               pos_x : i32, pos_y : i32, width : i32, height : i32) -> Lines {
+    pub fn new(
+        bytes_per_line: i32,
+        length: i32,
+        pos_x: i32,
+        pos_y: i32,
+        width: i32,
+        height: i32,
+    ) -> Lines {
         Lines {
             bytes_per_line: bytes_per_line,
             length: length,
@@ -36,7 +42,7 @@ impl Lines {
         }
     }
 
-    pub fn set_scroll(&mut self, scroll : i32) {
+    pub fn set_scroll(&mut self, scroll: i32) {
         self.scroll = scroll;
     }
 
@@ -45,7 +51,7 @@ impl Lines {
 
         let start_addr = self.scroll * self.bytes_per_line;
 
-        for line in 0 .. self.height {
+        for line in 0..self.height {
             let addr = start_addr + self.bytes_per_line * line;
             if addr >= self.length {
                 break;
@@ -56,19 +62,18 @@ impl Lines {
             let highlight = self.cursor >= addr && self.cursor < addr + self.bytes_per_line;
 
             if highlight {
-                nc::attron( nc::A_BOLD() | Color::CursorNoFocus.attr() );
+                nc::attron(nc::A_BOLD() | Color::CursorNoFocus.attr());
             }
 
-            nc::mvaddstr( self.pos_y + line, self.pos_x,
-                          addr_str.borrow() );
+            nc::mvaddstr(self.pos_y + line, self.pos_x, addr_str.borrow());
 
             if highlight {
-                nc::attroff( nc::A_BOLD() | Color::CursorNoFocus.attr() );
+                nc::attroff(nc::A_BOLD() | Color::CursorNoFocus.attr());
             }
         }
     }
 
-    pub fn move_cursor_offset(&mut self, byte_offset : i32) {
+    pub fn move_cursor_offset(&mut self, byte_offset: i32) {
         self.cursor = byte_offset;
 
         let mut line = byte_offset / self.bytes_per_line;
@@ -86,7 +91,7 @@ impl Lines {
         }
     }
 
-    fn mk_hex_string(&self, addr : i32, ret : &mut String) {
+    fn mk_hex_string(&self, addr: i32, ret: &mut String) {
         ret.clear();
 
         // for debugging purposes:
@@ -95,7 +100,7 @@ impl Lines {
         ret.push('0');
         ret.push('x');
 
-        for i in 0 .. self.width - 2 + 1 {
+        for i in 0..self.width - 2 + 1 {
             let nibble = ((addr >> (4 * (self.width - 2 - i))) & 0b00001111) as u8;
             ret.push(utils::hex_char(nibble) as char);
         }

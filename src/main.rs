@@ -20,14 +20,15 @@ use gui::Gui;
 use ncurses as nc;
 
 fn main() {
-    let args : Vec<OsString> = args_os().collect();
+    let args: Vec<OsString> = args_os().collect();
     if args.len() != 2 {
         panic!("USAGE: rhex <file>");
     }
 
     let path = Path::new(&args[1]);
     let contents = match File::open(path) {
-        Err(err) => panic!("Can't read file {:?}: {}", path, err),
+        Err(err) =>
+            panic!("Can't read file {:?}: {}", path, err),
         Ok(mut file) => {
             let mut ret = Vec::new();
             file.read_to_end(&mut ret).unwrap();
@@ -38,7 +39,7 @@ fn main() {
     nc::initscr();
     nc::keypad(nc::stdscr(), true);
     nc::noecho();
-    nc::curs_set( nc::CURSOR_VISIBILITY::CURSOR_INVISIBLE );
+    nc::curs_set(nc::CURSOR_VISIBILITY::CURSOR_INVISIBLE);
 
     colors::init_colors();
 
@@ -46,7 +47,6 @@ fn main() {
     let mut scr_y = 0;
     nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
 
-    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap(),
-                                   scr_x, scr_y, 0, 0);
+    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap(), scr_x, scr_y, 0, 0);
     gui.mainloop();
 }

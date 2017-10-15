@@ -47,37 +47,33 @@ impl GotoOverlay {
     }
 
     pub fn draw(&self) {
-        nc::wclear( self.win );
+        nc::wclear(self.win);
 
         nc::box_(self.win, 0, 0);
 
-        nc::mvwaddstr( self.win, 3, 5, "Goto byte offset:" );
-        nc::mvwaddstr( self.win, 5, 5, "> " );
-        nc::mvwaddstr( self.win, 5, 7, self.input.borrow() );
+        nc::mvwaddstr(self.win, 3, 5, "Goto byte offset:");
+        nc::mvwaddstr(self.win, 5, 5, "> ");
+        nc::mvwaddstr(self.win, 5, 7, self.input.borrow());
 
         // Draw cursor
-        nc::wattron( self.win, Color::CursorFocus.attr() );
-        nc::mvwaddch( self.win, 5, 7 + self.input.len() as i32, b' ' as u64 );
-        nc::wattroff( self.win, Color::CursorFocus.attr() );
+        nc::wattron(self.win, Color::CursorFocus.attr());
+        nc::mvwaddch(self.win, 5, 7 + self.input.len() as i32, b' ' as u64);
+        nc::wattroff(self.win, Color::CursorFocus.attr());
 
         nc::wrefresh(self.win);
     }
 
-    pub fn keypressed(&mut self, ch : i32) -> OverlayRet {
+    pub fn keypressed(&mut self, ch: i32) -> OverlayRet {
         if ch >= b'0' as i32 && ch <= b'9' as i32 {
             self.input.push(char::from_u32(ch as u32).unwrap());
             OverlayRet::Continue
-        }
-
-        else if ch == b'g' as i32 {
+        } else if ch == b'g' as i32 {
             OverlayRet::GotoBeginning
-        }
-
-        else if ch == 27 {
+        } else if ch == 27 {
             // Is it escape or ALT + something?
-            nc::nodelay( self.win, true );
-            let next_ch = nc::wgetch( self.win );
-            nc::nodelay( self.win, false );
+            nc::nodelay(self.win, true);
+            let next_ch = nc::wgetch(self.win);
+            nc::nodelay(self.win, false);
 
             if next_ch == -1 {
                 // It's escape, abort
@@ -86,27 +82,22 @@ impl GotoOverlay {
                 // It's ALT + something, but we don't handle that
                 OverlayRet::Continue
             }
-        }
-
-        else if ch == nc::KEY_BACKSPACE || ch == 127 { // backspace
+        } else if ch == nc::KEY_BACKSPACE || ch == 127 {
+            // backspace
             self.input.pop();
             OverlayRet::Continue
-        }
-
-        else if ch == 10 || ch == b'\n' as i32 {
+        } else if ch == 10 || ch == b'\n' as i32 {
             if self.input.len() == 0 {
                 OverlayRet::Abort
             } else {
-                OverlayRet::Ret( self.input.parse().unwrap() )
+                OverlayRet::Ret(self.input.parse().unwrap())
             }
-        }
-
-        else {
+        } else {
             OverlayRet::Continue
         }
     }
 
     pub fn get_char(&self) -> i32 {
-        nc::wgetch( self.win )
+        nc::wgetch(self.win)
     }
 }
