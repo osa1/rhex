@@ -1,52 +1,37 @@
-use std::borrow::Borrow;
+use utils::*;
+use colors;
 
-use colors::Color;
-
-use ncurses as nc;
+use termbox_simple::*;
 
 pub struct InfoLine {
     pos_x: i32,
     pos_y: i32,
     width: i32,
-
-    text: Vec<u8>,
+    text: String,
 }
 
 impl InfoLine {
-    pub fn new(width: i32, pos_x: i32, pos_y: i32, text: &[u8]) -> InfoLine {
+    pub fn new(width: i32, pos_x: i32, pos_y: i32, text: String) -> InfoLine {
         InfoLine {
             pos_x: pos_x,
             pos_y: pos_y,
             width: width,
-            text: text.to_vec(),
+            text: text,
         }
     }
 
-    pub fn set_text(&mut self, text: &[u8]) {
-        self.text.clear();
-        self.text.extend_from_slice(text);
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
     }
 
-    pub fn draw(&self) {
-        let slice: &[u8] = self.text.borrow();
+    pub fn draw(&self, tb: &mut Termbox) {
+        let fg = colors::STATUS_BAR.fg;
+        let bg = colors::STATUS_BAR.bg;
 
-        nc::attron(Color::StatusBar.attr());
-
-        unsafe {
-            nc::ll::mvaddnstr(
-                self.pos_y,
-                self.pos_x,
-                slice.as_ptr() as *const i8,
-                self.text.len() as i32,
-            );
+        for x in self.pos_x..=self.pos_x + self.width {
+            tb.change_cell(x, self.pos_y, ' ', fg, bg);
         }
 
-        for x in (self.pos_x + self.text.len() as i32)..(self.pos_x + self.width + 1) {
-            unsafe {
-                nc::ll::mvaddch(self.pos_y, x, b' ' as u64);
-            }
-        }
-
-        nc::attroff(Color::StatusBar.attr());
+        print(tb, self.pos_x, self.pos_y, colors::STATUS_BAR, &self.text);
     }
 }

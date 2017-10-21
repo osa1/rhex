@@ -1,11 +1,11 @@
-use std::borrow::Borrow;
 use std::char;
 use std::cmp;
 
-use colors::Color;
+use colors;
+use utils::*;
 
-use ncurses as nc;
 use term_input::Key;
+use termbox_simple::*;
 
 /// Return value of the overlay. Returned by `keypressed()` method.
 pub enum OverlayRet {
@@ -23,14 +23,11 @@ pub enum OverlayRet {
 }
 
 pub struct GotoOverlay {
-    win: nc::WINDOW,
+    pos_x: i32,
+    pos_y: i32,
+    width: i32,
+    height: i32,
     input: String,
-}
-
-impl Drop for GotoOverlay {
-    fn drop(&mut self) {
-        nc::delwin(self.win);
-    }
 }
 
 impl GotoOverlay {
@@ -42,26 +39,39 @@ impl GotoOverlay {
         let pos_y = pos_y + (height - height_) / 2;
 
         GotoOverlay {
-            win: nc::newwin(height_, width_, pos_y, pos_x),
+            pos_x,
+            pos_y,
+            width: width_,
+            height: height_,
             input: String::new(),
         }
     }
 
-    pub fn draw(&self) {
-        nc::wclear(self.win);
+    pub fn draw(&self, tb: &mut Termbox) {
+        draw_box(tb, self.pos_x, self.pos_y, self.width, self.height);
+        print(
+            tb,
+            self.pos_x + 5,
+            self.pos_y + 3,
+            colors::DEFAULT,
+            "Goto byte offset:",
+        );
+        print(tb, self.pos_x + 5, self.pos_y + 5, colors::DEFAULT, ">");
+        print(
+            tb,
+            self.pos_x + 7,
+            self.pos_y + 5,
+            colors::DEFAULT,
+            &self.input,
+        );
 
-        nc::box_(self.win, 0, 0);
-
-        nc::mvwaddstr(self.win, 3, 5, "Goto byte offset:");
-        nc::mvwaddstr(self.win, 5, 5, "> ");
-        nc::mvwaddstr(self.win, 5, 7, self.input.borrow());
-
-        // Draw cursor
-        nc::wattron(self.win, Color::CursorFocus.attr());
-        nc::mvwaddch(self.win, 5, 7 + self.input.len() as i32, b' ' as u64);
-        nc::wattroff(self.win, Color::CursorFocus.attr());
-
-        nc::wrefresh(self.win);
+        tb.change_cell(
+            self.pos_x + 7 + self.input.len() as i32,
+            self.pos_y + 5,
+            ' ',
+            colors::CURSOR_FOCUS.fg,
+            colors::CURSOR_FOCUS.bg,
+        );
     }
 
     pub fn keypressed(&mut self, key: Key) -> OverlayRet {

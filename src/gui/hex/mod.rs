@@ -13,13 +13,17 @@ use self::lines::Lines;
 use self::search::{SearchOverlay, SearchRet};
 
 use libc;
-use ncurses as nc;
 use nix::poll::{poll, PollFd, POLLIN};
 use term_input::{Event, Input, Key};
+use termbox_simple::*;
 
 /// GUI is the main thing that owns every widget. It's also responsible for
 /// ncurses initialization and finalization.
 pub struct HexGui<'gui> {
+    tb: Termbox,
+    width: i32,
+    height: i32,
+
     hex_grid: HexGrid<'gui>,
     lines: Lines,
     ascii_view: AsciiView<'gui>,
@@ -44,6 +48,7 @@ pub enum Overlay<'overlay> {
 
 impl<'gui> HexGui<'gui> {
     pub fn new(
+        tb: Termbox,
         contents: &'gui [u8],
         path: &'gui str,
         width: i32,
@@ -79,9 +84,13 @@ impl<'gui> HexGui<'gui> {
             contents,
         );
 
-        let info_line = InfoLine::new(width, 0, height - 1, format!("{} - 0: 0", path).as_bytes());
+        let info_line = InfoLine::new(width, 0, height - 1, format!("{} - 0: 0", path));
 
         HexGui {
+            tb: tb,
+            width: width,
+            height: height,
+
             hex_grid: hex_grid,
             lines: lines,
             ascii_view: ascii_view,
@@ -113,22 +122,26 @@ impl<'gui> HexGui<'gui> {
         &mut self.info_line
     }
 
-    pub fn draw(&self) {
-        nc::clear();
-        self.hex_grid.draw(&self.highlight, self.highlight_len);
-        self.lines.draw();
-        self.ascii_view.draw(&self.highlight, self.highlight_len);
-        self.info_line.draw();
-        nc::refresh();
+    pub fn draw(&mut self) {
+        self.tb.clear();
+
+        self.hex_grid
+            .draw(&mut self.tb, &self.highlight, self.highlight_len);
+        self.lines.draw(&mut self.tb);
+        self.ascii_view
+            .draw(&mut self.tb, &self.highlight, self.highlight_len);
+        self.info_line.draw(&mut self.tb);
 
         match self.overlay {
             Overlay::NoOverlay =>
                 {}
             Overlay::SearchOverlay(ref o) =>
-                o.draw(),
+                o.draw(&mut self.tb),
             Overlay::GotoOverlay(ref o) =>
-                o.draw(),
+                o.draw(&mut self.tb),
         }
+
+        self.tb.present();
     }
 
     pub fn mainloop(&mut self) {
@@ -277,31 +290,21 @@ impl<'gui> HexGui<'gui> {
     }
 
     fn mk_goto_overlay(&mut self) {
-        let mut scr_x = 0;
-        let mut scr_y = 0;
-        nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
-
-        self.overlay =
-            Overlay::GotoOverlay(GotoOverlay::new(scr_x / 2, scr_y / 2, scr_x / 4, scr_y / 4));
+        self.overlay = Overlay::GotoOverlay(GotoOverlay::new(
+            self.width / 2,
+            self.height / 2,
+            self.width / 4,
+            self.height / 4,
+        ));
     }
 
     fn mk_search_overlay(&mut self) {
-        let mut scr_x = 0;
-        let mut scr_y = 0;
-        nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
-
         self.overlay = Overlay::SearchOverlay(SearchOverlay::new(
-            scr_x / 2,
-            scr_y / 2,
-            scr_x / 4,
-            scr_y / 4,
+            self.width / 2,
+            self.height / 2,
+            self.width / 4,
+            self.height / 4,
             self.contents,
         ));
-    }
-}
-
-impl<'gui> Drop for HexGui<'gui> {
-    fn drop(&mut self) {
-        nc::endwin();
     }
 }

@@ -1,11 +1,12 @@
 #![feature(alloc_system)]
+#![feature(inclusive_range_syntax)]
 
 extern crate alloc_system;
 
 extern crate libc;
-extern crate ncurses;
 extern crate nix;
 extern crate term_input;
+extern crate termbox_simple;
 
 mod colors;
 mod gui;
@@ -19,7 +20,7 @@ use std::path::Path;
 
 use gui::Gui;
 
-use ncurses as nc;
+use termbox_simple::*;
 
 fn main() {
     let args: Vec<OsString> = args_os().collect();
@@ -38,17 +39,13 @@ fn main() {
         }
     };
 
-    nc::initscr();
-    nc::keypad(nc::stdscr(), true);
-    nc::noecho();
-    nc::curs_set(nc::CURSOR_VISIBILITY::CURSOR_INVISIBLE);
+    let mut tb = Termbox::init().unwrap();
+    tb.set_output_mode(OutputMode::Output256);
+    tb.set_clear_attributes(TB_DEFAULT, TB_DEFAULT);
 
-    colors::init_colors();
+    let scr_x = tb.width();
+    let scr_y = tb.height();
 
-    let mut scr_x = 0;
-    let mut scr_y = 0;
-    nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
-
-    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap(), scr_x, scr_y);
+    let mut gui = Gui::new_hex_gui(tb, &contents, path.to_str().unwrap(), scr_x, scr_y);
     gui.mainloop();
 }

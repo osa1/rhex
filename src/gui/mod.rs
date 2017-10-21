@@ -1,7 +1,6 @@
-#[macro_use]
-pub mod macros;
-
 pub mod hex;
+
+use termbox_simple::*;
 
 pub struct Gui<'gui> {
     hex_gui: hex::HexGui<'gui>,
@@ -9,13 +8,14 @@ pub struct Gui<'gui> {
 
 impl<'gui> Gui<'gui> {
     pub fn new_hex_gui(
+        tb: Termbox,
         contents: &'gui [u8],
         path: &'gui str,
         width: i32,
         height: i32,
     ) -> Gui<'gui> {
         Gui {
-            hex_gui: hex::HexGui::new(contents, path, width, height),
+            hex_gui: hex::HexGui::new(tb, contents, path, width, height),
         }
     }
 

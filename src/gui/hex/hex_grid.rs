@@ -1,14 +1,13 @@
-use std::borrow::Borrow;
 use std::cmp;
 use std::ptr;
 
 use gui::hex::HexGui;
 
-use colors::Color;
-use utils;
+use colors;
+use utils::*;
 
-use ncurses as nc;
 use term_input::{Arrow, Key};
+use termbox_simple::*;
 
 pub struct HexGrid<'grid> {
     pos_x: i32,
@@ -22,8 +21,6 @@ pub struct HexGrid<'grid> {
     cursor_x: i32,
     cursor_y: i32,
     scroll: i32,
-
-    has_focus: bool,
 
     gui: *mut HexGui<'grid>,
 }
@@ -50,8 +47,6 @@ impl<'grid> HexGrid<'grid> {
             cursor_x: 0,
             cursor_y: 0,
             scroll: 0,
-
-            has_focus: false,
 
             gui: ptr::null_mut(),
         }
@@ -256,16 +251,13 @@ impl<'grid> HexGrid<'grid> {
     pub fn update_ascii_view(&self) {
         let gui: &mut HexGui = unsafe { &mut *self.gui };
         gui.get_ascii_view().move_cursor_offset(self.get_byte_idx());
-        gui.get_info_line().set_text(
-            format!(
-                "{} - {}: {} (scroll: {})",
-                self.path,
-                self.get_row(),
-                self.get_column(),
-                self.get_scroll()
-            ).into_bytes()
-                .borrow(),
-        );
+        gui.get_info_line().set_text(format!(
+            "{} - {}: {} (scroll: {})",
+            self.path,
+            self.get_row(),
+            self.get_column(),
+            self.get_scroll()
+        ));
     }
 
     pub fn update_lines(&self) {
@@ -275,19 +267,16 @@ impl<'grid> HexGrid<'grid> {
 
     pub fn update_info_line(&self) {
         let gui: &mut HexGui = unsafe { &mut *self.gui };
-        gui.get_info_line().set_text(
-            format!(
-                "{} - {}: {} (scroll: {})",
-                self.path,
-                self.get_row(),
-                self.get_column(),
-                self.get_scroll()
-            ).into_bytes()
-                .borrow(),
-        );
+        gui.get_info_line().set_text(format!(
+            "{} - {}: {} (scroll: {})",
+            self.path,
+            self.get_row(),
+            self.get_column(),
+            self.get_scroll()
+        ));
     }
 
-    pub fn draw(&self, hl: &[usize], hl_len: usize) {
+    pub fn draw(&self, tb: &mut Termbox, hl: &[usize], hl_len: usize) {
         let cols = self.bytes_per_line();
         let rows = self.height;
 
@@ -297,79 +286,72 @@ impl<'grid> HexGrid<'grid> {
             for col in 0..cols {
                 let byte_idx = (row * cols + col) as usize;
                 if let Some(&byte) = self.data.get(byte_idx) {
-                    let char1: u8 = utils::hex_char(byte >> 4);
-                    let char2: u8 = utils::hex_char(byte & 0b0000_1111);
+                    let char1: u8 = hex_char(byte >> 4);
+                    let char2: u8 = hex_char(byte & 0b0000_1111);
 
                     let attr_1 = col * 3 == self.cursor_x && row == self.cursor_y;
                     let attr_2 = col * 3 + 1 == self.cursor_x && row == self.cursor_y;
-                    let color_attr = if self.has_focus {
-                        Color::CursorFocus.attr()
+
+                    let mut highlight = false;
+                    let style = if let Some(&hl_offset) = hl.get(hl_idx) {
+                        if byte_idx >= hl_offset && byte_idx < hl_offset + hl_len {
+                            highlight = true;
+                            colors::HIGHLIGHT
+                        } else {
+                            colors::DEFAULT
+                        }
                     } else {
-                        Color::CursorNoFocus.attr()
+                        colors::DEFAULT
                     };
 
                     while hl_idx < hl.len() && hl[hl_idx] + hl_len < byte_idx {
                         hl_idx += 1;
                     }
 
-                    let hl_attr = {
-                        if let Some(&hl_offset) = hl.get(hl_idx) {
-                            if byte_idx >= hl_offset && byte_idx < hl_offset + hl_len {
-                                // writeln!(&mut ::std::io::stderr(), "highlighting char: {}", byte as char);
-                                Color::Highlight.attr()
-                            } else {
-                                0
-                            }
-                        } else {
-                            0
-                        }
-                    };
-
-                    if attr_1 {
-                        nc::attron(nc::A_BOLD() | color_attr);
-                    } else if hl_attr != 0 {
-                        nc::attron(hl_attr);
-                    }
-
-                    nc::mvaddch(
-                        self.pos_y + row - self.scroll,
+                    tb.change_cell(
                         self.pos_x + col * 3,
-                        char1 as u64,
-                    );
-
-                    if attr_1 {
-                        nc::attroff(nc::A_BOLD() | color_attr);
-                    } else if hl_attr != 0 {
-                        nc::attroff(hl_attr);
-                    }
-
-
-                    if attr_2 {
-                        nc::attron(nc::A_BOLD() | color_attr);
-                    } else if hl_attr != 0 {
-                        nc::attron(hl_attr);
-                    }
-
-                    nc::mvaddch(
                         self.pos_y + row - self.scroll,
-                        self.pos_x + col * 3 + 1,
-                        char2 as u64,
+                        char1 as char,
+                        if attr_1 {
+                            colors::CURSOR_NO_FOCUS.fg
+                        } else {
+                            style.fg
+                        },
+                        if attr_1 {
+                            colors::CURSOR_NO_FOCUS.bg
+                        } else {
+                            style.bg
+                        },
                     );
 
-                    if attr_2 {
-                        nc::attroff(nc::A_BOLD() | color_attr);
-                    } else if hl_attr != 0 {
-                        nc::attroff(hl_attr);
-                    }
+                    tb.change_cell(
+                        self.pos_x + col * 3 + 1,
+                        self.pos_y + row - self.scroll,
+                        char2 as char,
+                        if attr_2 {
+                            colors::CURSOR_NO_FOCUS.fg
+                        } else {
+                            style.fg
+                        },
+                        if attr_2 {
+                            colors::CURSOR_NO_FOCUS.bg
+                        } else {
+                            style.bg
+                        },
+                    );
 
                     // When highlighting a word, paint the space between bytes too
-                    let highlight = hl_attr != 0 && byte_idx + 1 < hl[hl_idx] + hl_len;
+                    let highlight = highlight && byte_idx + 1 < hl[hl_idx] + hl_len;
 
                     let space_col = self.pos_x + col * 3 + 2;
                     if highlight && space_col < self.width - 1 {
-                        nc::attron(hl_attr);
-                        nc::mvaddch(self.pos_y + row - self.scroll, space_col, b' ' as u64);
-                        nc::attroff(hl_attr);
+                        tb.change_cell(
+                            space_col,
+                            self.pos_y + row - self.scroll,
+                            ' ',
+                            colors::HIGHLIGHT.fg,
+                            colors::HIGHLIGHT.bg,
+                        );
                     }
                 } else {
                     // Nothing to draw here, also we can break the loop

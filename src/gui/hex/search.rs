@@ -1,10 +1,10 @@
 use std::cmp;
 
-use colors::Color;
+use colors;
 use utils::*;
 
-use ncurses as nc;
 use term_input::Key;
+use termbox_simple::*;
 
 pub enum SearchRet {
     /// Highlight these bytes.
@@ -39,7 +39,8 @@ enum NibbleCursor {
 }
 
 pub struct SearchOverlay<'overlay> {
-    win: nc::WINDOW,
+    pos_x: i32,
+    pos_y: i32,
     width: i32,
     height: i32,
 
@@ -52,12 +53,6 @@ pub struct SearchOverlay<'overlay> {
     nibble_cursor: NibbleCursor,
 
     contents: &'overlay [u8],
-}
-
-impl<'overlay> Drop for SearchOverlay<'overlay> {
-    fn drop(&mut self) {
-        nc::delwin(self.win);
-    }
 }
 
 impl<'overlay> SearchOverlay<'overlay> {
@@ -75,7 +70,8 @@ impl<'overlay> SearchOverlay<'overlay> {
         let pos_y = pos_y + (height - height_) / 2;
 
         SearchOverlay {
-            win: nc::newwin(height_, width_, pos_y, pos_x),
+            pos_x,
+            pos_y,
             width: width_,
             height: height_,
 
@@ -88,36 +84,53 @@ impl<'overlay> SearchOverlay<'overlay> {
         }
     }
 
-    pub fn draw(&self) {
-        nc::wclear(self.win);
-
-        nc::box_(self.win, 0, 0);
-
-        nc::mvwaddch(self.win, 0, self.width / 2, nc::ACS_TTEE());
-        nc::mvwvline(
-            self.win,
-            1,
-            self.width / 2,
-            nc::ACS_VLINE(),
-            self.height - 2,
+    pub fn draw(&self, tb: &mut Termbox) {
+        draw_box(tb, self.pos_x, self.pos_y, self.width, self.height);
+        tb.change_cell(
+            self.pos_x + self.width / 2,
+            self.pos_y,
+            '┬',
+            colors::DEFAULT.fg,
+            colors::DEFAULT.bg,
         );
-        nc::mvwaddch(self.win, self.height - 1, self.width / 2, nc::ACS_BTEE());
+        for y in 1..self.height - 1 {
+            tb.change_cell(
+                self.pos_x + self.width / 2,
+                self.pos_y + y,
+                '│',
+                colors::DEFAULT.fg,
+                colors::DEFAULT.bg,
+            );
+        }
+        tb.change_cell(
+            self.pos_x + self.width / 2,
+            self.pos_y + self.height - 1,
+            '┴',
+            colors::DEFAULT.fg,
+            colors::DEFAULT.bg,
+        );
 
-        self.draw_hex();
-        self.draw_ascii();
-
-        nc::wrefresh(self.win);
+        self.draw_hex(tb);
+        self.draw_ascii(tb);
     }
 
-    fn draw_ascii(&self) {
+
+    fn draw_ascii(&self, tb: &mut Termbox) {
         // Not the most efficient way to draw, but be fine at this scale
         // (e.g. for a couple of characters at most)
         let width = ((self.width - 1) / 2) as usize;
         for (byte_offset, byte) in self.buffer.iter().enumerate() {
-            let pos_x = (byte_offset % width) + 1;
-            let pos_y = (byte_offset / width) + 1;
+            let pos_x = ((byte_offset % width) + 1) as i32;
+            let pos_y = ((byte_offset / width) + 1) as i32;
 
-            nc::mvwaddch(self.win, pos_y as i32, pos_x as i32, *byte as u64);
+
+            tb.change_cell(
+                self.pos_x + pos_x,
+                self.pos_y + pos_y,
+                *byte as char,
+                colors::DEFAULT.fg,
+                colors::DEFAULT.bg,
+            );
         }
 
         // Draw cursor
@@ -130,28 +143,23 @@ impl<'overlay> SearchOverlay<'overlay> {
             self.buffer[self.byte_cursor]
         };
 
-        match self.mode {
-            SearchMode::Ascii => {
-                nc::wattron(self.win, Color::CursorFocus.attr());
-            }
-            SearchMode::Hex => {
-                nc::wattron(self.win, Color::CursorNoFocus.attr());
-            }
-        }
+        let cursor_style = match self.mode {
+            SearchMode::Ascii =>
+                colors::CURSOR_FOCUS,
+            SearchMode::Hex =>
+                colors::CURSOR_NO_FOCUS,
+        };
 
-        nc::mvwaddch(self.win, cursor_y as i32 + 1, cursor_x as i32, byte as u64);
-
-        match self.mode {
-            SearchMode::Ascii => {
-                nc::wattroff(self.win, Color::CursorFocus.attr());
-            }
-            SearchMode::Hex => {
-                nc::wattroff(self.win, Color::CursorNoFocus.attr());
-            }
-        }
+        tb.change_cell(
+            self.pos_x + cursor_x as i32,
+            self.pos_y + cursor_y as i32 + 1,
+            byte as char,
+            cursor_style.fg,
+            cursor_style.bg,
+        );
     }
 
-    fn draw_hex(&self) {
+    fn draw_hex(&self, tb: &mut Termbox) {
         // Ideally we could reuse some of the code from HexGrid, but the code
         // here should be very simple as we don't have to deal with scrolling,
         // jumping around etc.
@@ -171,8 +179,20 @@ impl<'overlay> SearchOverlay<'overlay> {
             let nibble1 = hex_char(*byte >> 4);
             let nibble2 = hex_char(*byte & 0b0000_1111);
 
-            nc::mvwaddch(self.win, row, start_column + col, nibble1 as u64);
-            nc::mvwaddch(self.win, row, start_column + col + 1, nibble2 as u64);
+            tb.change_cell(
+                self.pos_x + start_column + col,
+                self.pos_y + row,
+                nibble1 as char,
+                colors::DEFAULT.fg,
+                colors::DEFAULT.bg,
+            );
+            tb.change_cell(
+                self.pos_x + start_column + col + 1,
+                self.pos_y + row,
+                nibble2 as char,
+                colors::DEFAULT.fg,
+                colors::DEFAULT.bg,
+            );
 
             col += 3;
         }
@@ -201,25 +221,20 @@ impl<'overlay> SearchOverlay<'overlay> {
             }
         };
 
-        match self.mode {
-            SearchMode::Hex => {
-                nc::wattron(self.win, Color::CursorFocus.attr());
-            }
-            SearchMode::Ascii => {
-                nc::wattron(self.win, Color::CursorNoFocus.attr());
-            }
-        }
+        let cursor_style = match self.mode {
+            SearchMode::Hex =>
+                colors::CURSOR_FOCUS,
+            SearchMode::Ascii =>
+                colors::CURSOR_NO_FOCUS,
+        };
 
-        nc::mvwaddch(self.win, cursor_y + 1, start_column + cursor_x, byte as u64);
-
-        match self.mode {
-            SearchMode::Hex => {
-                nc::wattroff(self.win, Color::CursorFocus.attr());
-            }
-            SearchMode::Ascii => {
-                nc::wattroff(self.win, Color::CursorNoFocus.attr());
-            }
-        }
+        tb.change_cell(
+            self.pos_x + start_column + cursor_x,
+            self.pos_y + cursor_y + 1,
+            byte as char,
+            cursor_style.fg,
+            cursor_style.bg,
+        );
     }
 
     pub fn keypressed(&mut self, key: Key) -> SearchRet {

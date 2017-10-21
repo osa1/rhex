@@ -1,10 +1,9 @@
-use std::borrow::Borrow;
 use std::cmp;
 
-use colors::Color;
-use utils;
+use colors;
+use utils::*;
 
-use ncurses as nc;
+use termbox_simple::*;
 
 pub struct Lines {
     bytes_per_line: i32,
@@ -20,12 +19,7 @@ pub struct Lines {
 }
 
 impl Lines {
-    pub fn new(
-        bytes_per_line: i32,
-        length: i32,
-        width: i32,
-        height: i32,
-    ) -> Lines {
+    pub fn new(bytes_per_line: i32, length: i32, width: i32, height: i32) -> Lines {
         Lines {
             bytes_per_line: bytes_per_line,
             length: length,
@@ -40,7 +34,7 @@ impl Lines {
         self.scroll = scroll;
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, tb: &mut Termbox) {
         let mut addr_str = String::with_capacity(self.width as usize);
 
         let start_addr = self.scroll * self.bytes_per_line;
@@ -54,16 +48,13 @@ impl Lines {
             self.mk_hex_string(addr, &mut addr_str);
 
             let highlight = self.cursor >= addr && self.cursor < addr + self.bytes_per_line;
+            let style = if highlight {
+                colors::CURSOR_NO_FOCUS
+            } else {
+                colors::DEFAULT
+            };
 
-            if highlight {
-                nc::attron(nc::A_BOLD() | Color::CursorNoFocus.attr());
-            }
-
-            nc::mvaddstr(line, 0, addr_str.borrow());
-
-            if highlight {
-                nc::attroff(nc::A_BOLD() | Color::CursorNoFocus.attr());
-            }
+            print(tb, 0, line, style, &addr_str);
         }
     }
 
@@ -96,7 +87,7 @@ impl Lines {
 
         for i in 0..self.width - 2 + 1 {
             let nibble = ((addr >> (4 * (self.width - 2 - i))) & 0b0000_1111) as u8;
-            ret.push(utils::hex_char(nibble) as char);
+            ret.push(hex_char(nibble) as char);
         }
     }
 }

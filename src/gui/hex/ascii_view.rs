@@ -1,8 +1,8 @@
 use std::cmp;
 
-use colors::Color;
+use colors;
 
-use ncurses as nc;
+use termbox_simple::*;
 
 pub struct AsciiView<'view> {
     pos_x: i32,
@@ -44,7 +44,7 @@ impl<'view> AsciiView<'view> {
         self.scroll = scroll;
     }
 
-    pub fn draw(&self, hl: &[usize], hl_len: usize) {
+    pub fn draw(&self, tb: &mut Termbox, hl: &[usize], hl_len: usize) {
         let rows = self.height;
         let cols = self.width;
 
@@ -64,38 +64,29 @@ impl<'view> AsciiView<'view> {
                         hl_idx += 1;
                     }
 
-                    let attr = self.cursor_x == col && self.cursor_y == row;
-                    let color_attr = if self.has_focus {
-                        Color::CursorFocus.attr()
-                    } else {
-                        Color::CursorNoFocus.attr()
-                    };
-
-                    let hl_attr = {
-                        if let Some(&hl_offset) = hl.get(hl_idx) {
-                            if byte_idx >= hl_offset && byte_idx < hl_offset + hl_len {
-                                Color::Highlight.attr()
-                            } else {
-                                0
-                            }
+                    let style = if self.cursor_x == col && self.cursor_y == row {
+                        if self.has_focus {
+                            colors::CURSOR_FOCUS
                         } else {
-                            0
+                            colors::CURSOR_NO_FOCUS
                         }
+                    } else if let Some(&hl_offset) = hl.get(hl_idx) {
+                        if byte_idx >= hl_offset && byte_idx < hl_offset + hl_len {
+                            colors::HIGHLIGHT
+                        } else {
+                            colors::DEFAULT
+                        }
+                    } else {
+                        colors::DEFAULT
                     };
 
-                    if attr {
-                        nc::attron(nc::A_BOLD() | color_attr);
-                    } else if hl_attr != 0 {
-                        nc::attron(hl_attr);
-                    }
-
-                    nc::mvaddch(self.pos_y + row - self.scroll, self.pos_x + col, ch as u64);
-
-                    if attr {
-                        nc::attroff(nc::A_BOLD() | color_attr);
-                    } else if hl_attr != 0 {
-                        nc::attroff(hl_attr);
-                    }
+                    tb.change_cell(
+                        self.pos_x + col,
+                        self.pos_y + row - self.scroll,
+                        ch as char,
+                        style.fg,
+                        style.bg,
+                    );
                 } else {
                     break 'outer;
                 }
