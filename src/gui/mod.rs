@@ -7,10 +7,6 @@ pub struct Gui<'gui> {
     hex_gui: hex::HexGui<'gui>,
 }
 
-pub enum GuiRet {
-    Break,
-}
-
 impl<'gui> Gui<'gui> {
     pub fn new_hex_gui(
         contents: &'gui Vec<u8>,
@@ -27,13 +23,6 @@ impl<'gui> Gui<'gui> {
 
     pub fn mainloop(&mut self) {
         self.hex_gui.init();
-
-        loop {
-            match self.hex_gui.mainloop() {
-                GuiRet::Break => {
-                    break;
-                }
-            }
-        }
+        self.hex_gui.mainloop();
     }
 }

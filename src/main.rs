@@ -4,6 +4,8 @@ extern crate alloc_system;
 
 extern crate libc;
 extern crate ncurses;
+extern crate nix;
+extern crate term_input;
 
 mod colors;
 mod gui;

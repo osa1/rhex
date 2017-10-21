@@ -4,6 +4,7 @@ use colors::Color;
 use utils::*;
 
 use ncurses as nc;
+use term_input::Key;
 
 pub enum SearchRet {
     /// Highlight these bytes.
@@ -221,51 +222,37 @@ impl<'overlay> SearchOverlay<'overlay> {
         }
     }
 
-    pub fn keypressed(&mut self, ch: i32) -> SearchRet {
+    pub fn keypressed(&mut self, key: Key) -> SearchRet {
         // TODO: We should be able to move cursor and insert at the cursor
         // position.
 
-        if ch == 27 {
-            // FIXME: This part is copied from goto
-
-            // Is it escape or ALT + something?
-            nc::nodelay(self.win, true);
-            let next_ch = nc::wgetch(self.win);
-            nc::nodelay(self.win, false);
-
-            if next_ch == -1 {
-                // It's escape, abort
-                SearchRet::Abort
-            } else {
-                // It's ALT + something, but we don't handle that
-                SearchRet::Continue
+        match key {
+            Key::Esc => {
+                return SearchRet::Abort;
             }
-        } else if ch == 10 || ch == b'\n' as i32 {
-            if self.buffer.len() != 0 {
-                // do the search
-                let offsets = self.find_offsets();
-                SearchRet::Highlight {
-                    focus: self.byte_cursor,
-                    all_bytes: offsets,
-                    len: self.buffer.len(),
+            Key::Enter => {
+                if self.buffer.len() != 0 {
+                    // do the search
+                    let offsets = self.find_offsets();
+                    return SearchRet::Highlight {
+                        focus: self.byte_cursor,
+                        all_bytes: offsets,
+                        len: self.buffer.len(),
+                    };
                 }
-            } else {
-                SearchRet::Continue
             }
-        } else if ch == b'\t' as i32 {
-            let new_sm = match self.mode {
-                SearchMode::Ascii =>
-                    SearchMode::Hex,
-                SearchMode::Hex =>
-                    SearchMode::Ascii,
-            };
-
-            self.mode = new_sm;
-            SearchRet::Continue
-        } else {
-            match self.mode {
-                SearchMode::Ascii => {
-                    if ch == nc::KEY_BACKSPACE || ch == 127 {
+            Key::Tab => {
+                let new_sm = match self.mode {
+                    SearchMode::Ascii =>
+                        SearchMode::Hex,
+                    SearchMode::Hex =>
+                        SearchMode::Ascii,
+                };
+                self.mode = new_sm;
+            }
+            Key::Backspace =>
+                match self.mode {
+                    SearchMode::Ascii =>
                         match self.buffer.pop() {
                             None =>
                                 {}
@@ -273,67 +260,8 @@ impl<'overlay> SearchOverlay<'overlay> {
                                 if self.byte_cursor != 0 {
                                     self.byte_cursor -= 1;
                                 },
-                        }
-                    } else {
-                        match ch {
-                            0...0xFF => {
-                                self.buffer.push(ch as u8);
-                                self.byte_cursor += 1;
-                                self.nibble_cursor = NibbleCursor::MS;
-                            }
-                            _ =>
-                            { /* ignore */ }
-                        }
-                    }
-                }
-                SearchMode::Hex => {
-                    let nibble = match ch {
-                        65...70 => {
-                            // A ... F
-                            Some((ch - 65 + 10) as u8)
-                        }
-                        97...102 => {
-                            // a ... f
-                            Some((ch - 97 + 10) as u8)
-                        }
-                        48...57 => {
-                            // 0 ... 9
-                            Some((ch - 48) as u8)
-                        }
-                        _ =>
-                            None,
-                    };
-
-                    if let Some(nibble) = nibble {
-                        let current_byte = if self.byte_cursor >= self.buffer.len() {
-                            0
-                        } else {
-                            self.buffer[self.byte_cursor]
-                        };
-
-                        let new_byte = match self.nibble_cursor {
-                            NibbleCursor::MS =>
-                                (current_byte & 0b00001111) | (nibble << 4),
-                            NibbleCursor::LS =>
-                                (current_byte & 0b11110000) | nibble,
-                        };
-
-                        if self.byte_cursor >= self.buffer.len() {
-                            self.buffer.push(new_byte);
-                            self.nibble_cursor = NibbleCursor::LS;
-                        } else {
-                            self.buffer[self.byte_cursor] = new_byte;
-
-                            match self.nibble_cursor {
-                                NibbleCursor::MS =>
-                                    self.nibble_cursor = NibbleCursor::LS,
-                                NibbleCursor::LS => {
-                                    self.nibble_cursor = NibbleCursor::MS;
-                                    self.byte_cursor += 1;
-                                }
-                            }
-                        }
-                    } else if ch == nc::KEY_BACKSPACE || ch == 127 {
+                        },
+                    SearchMode::Hex =>
                         match self.nibble_cursor {
                             NibbleCursor::LS => {
                                 let byte = self.buffer[self.byte_cursor];
@@ -358,17 +286,74 @@ impl<'overlay> SearchOverlay<'overlay> {
                                             },
                                     }
                                 },
+                        },
+                },
+            Key::Char(ch) => {
+                // FIXME non-ascii chars
+                let ch = ch as u32;
+                match self.mode {
+                    SearchMode::Ascii =>
+                        if ch <= 0xFF {
+                            self.buffer.push(ch as u8);
+                            self.byte_cursor += 1;
+                            self.nibble_cursor = NibbleCursor::MS;
+                        },
+                    SearchMode::Hex => {
+                        let nibble = match ch {
+                            65...70 => {
+                                // A ... F
+                                Some((ch - 65 + 10) as u8)
+                            }
+                            97...102 => {
+                                // a ... f
+                                Some((ch - 97 + 10) as u8)
+                            }
+                            48...57 => {
+                                // 0 ... 9
+                                Some((ch - 48) as u8)
+                            }
+                            _ =>
+                                None,
+                        };
+
+                        if let Some(nibble) = nibble {
+                            let current_byte = if self.byte_cursor >= self.buffer.len() {
+                                0
+                            } else {
+                                self.buffer[self.byte_cursor]
+                            };
+
+                            let new_byte = match self.nibble_cursor {
+                                NibbleCursor::MS =>
+                                    (current_byte & 0b00001111) | (nibble << 4),
+                                NibbleCursor::LS =>
+                                    (current_byte & 0b11110000) | nibble,
+                            };
+
+                            if self.byte_cursor >= self.buffer.len() {
+                                self.buffer.push(new_byte);
+                                self.nibble_cursor = NibbleCursor::LS;
+                            } else {
+                                self.buffer[self.byte_cursor] = new_byte;
+
+                                match self.nibble_cursor {
+                                    NibbleCursor::MS =>
+                                        self.nibble_cursor = NibbleCursor::LS,
+                                    NibbleCursor::LS => {
+                                        self.nibble_cursor = NibbleCursor::MS;
+                                        self.byte_cursor += 1;
+                                    }
+                                }
+                            }
                         }
-                    };
+                    }
                 }
             }
-
-            SearchRet::Continue
+            _ =>
+                {}
         }
-    }
 
-    pub fn get_char(&self) -> i32 {
-        nc::wgetch(self.win)
+        SearchRet::Continue
     }
 
     fn find_offsets(&self) -> Vec<usize> {

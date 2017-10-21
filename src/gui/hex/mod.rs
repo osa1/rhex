@@ -12,10 +12,10 @@ use self::info_line::InfoLine;
 use self::lines::Lines;
 use self::search::{SearchOverlay, SearchRet};
 
-use gui::GuiRet;
-
+use libc;
 use ncurses as nc;
-use ncurses::constants as nc_cs;
+use nix::poll::{poll, PollFd, POLLIN};
+use term_input::{Event, Input, Key};
 
 /// GUI is the main thing that owns every widget. It's also responsible for
 /// ncurses initialization and finalization.
@@ -29,6 +29,8 @@ pub struct HexGui<'gui> {
 
     highlight: Vec<usize>,
     highlight_len: usize,
+
+    z_pressed: bool,
 }
 
 pub enum Overlay<'overlay> {
@@ -93,6 +95,8 @@ impl<'gui> HexGui<'gui> {
 
             highlight: Vec::new(),
             highlight_len: 0,
+
+            z_pressed: false,
         }
     }
 
@@ -131,126 +135,143 @@ impl<'gui> HexGui<'gui> {
         }
     }
 
-    pub fn mainloop(&mut self) -> GuiRet {
+    pub fn mainloop(&mut self) {
+        let mut input = Input::new();
+        let mut evs = Vec::with_capacity(10);
+        self.draw();
+
         loop {
+            let mut fds = [PollFd::new(libc::STDIN_FILENO, POLLIN)];
+            let _ = poll(&mut fds, -1);
+
+            input.read_input_events(&mut evs);
+
+            let mut brk = false;
+            for ev in evs.drain(..) {
+                brk |= self.handle_event(ev);
+            }
+            if brk {
+                break;
+            }
             self.draw();
-
-            let ch = self.get_char();
-
-            if ch == nc_cs::ERR {
-                // timeout
-                continue;
-            }
-
-            let mut reset_overlay = false;
-            match self.overlay {
-                Overlay::NoOverlay => {
-                    if ch == b'q' as i32 {
-                        return GuiRet::Break;
-                    }
-                    self.keypressed(ch)
-                }
-
-                Overlay::GotoOverlay(ref mut o) => {
-                    match o.keypressed(ch) {
-                        OverlayRet::Ret(offset) => {
-                            self.hex_grid.move_cursor_offset(offset);
-                            // self.overlay = Overlay::NoOverlay;
-                            reset_overlay = true;
-                        }
-                        OverlayRet::GotoBeginning => {
-                            self.hex_grid.move_cursor_offset(0);
-                            // self.overlay = Overlay::NoOverlay;
-                            reset_overlay = true;
-                        }
-                        OverlayRet::Continue =>
-                            {}
-                        OverlayRet::Abort => {
-                            // self.overlay = Overlay::NoOverlay;
-                            reset_overlay = true;
-                        }
-                    }
-                }
-
-                Overlay::SearchOverlay(ref mut o) => {
-                    match o.keypressed(ch) {
-                        SearchRet::Highlight {
-                            all_bytes: bs,
-                            len: l,
-                            ..
-                        } => {
-                            self.highlight = bs;
-                            self.highlight_len = l;
-                            reset_overlay = true;
-                        }
-                        SearchRet::Abort => {
-                            reset_overlay = true;
-                        }
-                        SearchRet::Continue =>
-                        { /* nothing to do */ }
-                    }
-                }
-            };
-
-            if reset_overlay {
-                self.overlay = Overlay::NoOverlay;
-            }
         }
     }
 
-    fn keypressed(&mut self, ch: i32) {
-        if ch == b'g' as i32 {
-            self.mk_goto_overlay();
-        } else if ch == b'/' as i32 {
-            self.mk_search_overlay();
-        } else if ch == b'z' as i32 {
-            let next_ch = self.get_char();
-            if next_ch == b'z' as i32 {
-                self.hex_grid.try_center_scroll();
-                self.lines.set_scroll(self.hex_grid.get_scroll());
-                self.ascii_view.set_scroll(self.hex_grid.get_scroll());
-            } else {
-                // ignore
-            }
-        } else if ch == b'n' as i32 {
-            let hls = &self.highlight;
-            let byte_idx = self.hex_grid.get_byte_idx() as usize;
-            for &hl_offset in hls {
-                if hl_offset > byte_idx {
-                    self.hex_grid.move_cursor_offset(hl_offset as i32);
-                    return;
-                }
-            }
-            // We couldn't jump to a match, start from the beginning
-            if let Some(&hl_offset) = hls.get(0) {
-                self.hex_grid.move_cursor_offset(hl_offset as i32);
-            }
-        } else if ch == b'N' as i32 {
-            let hls = &self.highlight;
-            let byte_idx = self.hex_grid.get_byte_idx() as usize;
-            for &hl_offset in hls.iter().rev() {
-                if hl_offset < byte_idx {
-                    self.hex_grid.move_cursor_offset(hl_offset as i32);
-                    return;
-                }
-            }
-            // We couldn't jump to a match, start from the beginning
-            if let Some(&hl_offset) = hls.get(hls.len() - 1) {
-                self.hex_grid.move_cursor_offset(hl_offset as i32);
-            }
-        } else {
-            self.hex_grid.keypressed(ch);
+    fn handle_event(&mut self, ev: Event) -> bool {
+        match ev {
+            Event::Key(key) =>
+                self.keypressed(key),
+            Event::String(_) |
+            Event::Resize |
+            Event::FocusGained |
+            Event::FocusLost |
+            Event::Unknown(_) =>
+                false,
         }
     }
 
-    fn get_char(&self) -> i32 {
+    fn keypressed(&mut self, key: Key) -> bool {
+        let mut reset_overlay = false;
         match self.overlay {
-            Overlay::NoOverlay =>
-                nc::getch(),
-            Overlay::GotoOverlay(ref o) =>
-                o.get_char(),
-            Overlay::SearchOverlay(ref o) =>
-                o.get_char(),
+            Overlay::NoOverlay => {
+                if key == Key::Char('q') {
+                    return true;
+                }
+                self.keypressed_no_overlay(key)
+            }
+
+            Overlay::GotoOverlay(ref mut o) =>
+                match o.keypressed(key) {
+                    OverlayRet::Ret(offset) => {
+                        self.hex_grid.move_cursor_offset(offset);
+                        reset_overlay = true;
+                    }
+                    OverlayRet::GotoBeginning => {
+                        self.hex_grid.move_cursor_offset(0);
+                        reset_overlay = true;
+                    }
+                    OverlayRet::Continue =>
+                        {}
+                    OverlayRet::Abort => {
+                        reset_overlay = true;
+                    }
+                },
+
+            Overlay::SearchOverlay(ref mut o) => {
+                match o.keypressed(key) {
+                    SearchRet::Highlight {
+                        all_bytes: bs,
+                        len: l,
+                        ..
+                    } => {
+                        self.highlight = bs;
+                        self.highlight_len = l;
+                        reset_overlay = true;
+                    }
+                    SearchRet::Abort => {
+                        reset_overlay = true;
+                    }
+                    SearchRet::Continue =>
+                    { /* nothing to do */ }
+                }
+            }
+        };
+
+        if reset_overlay {
+            self.overlay = Overlay::NoOverlay;
+        }
+
+        false
+    }
+
+    fn keypressed_no_overlay(&mut self, key: Key) {
+        match key {
+            Key::Char('g') => {
+                self.mk_goto_overlay();
+            }
+            Key::Char('/') => {
+                self.mk_search_overlay();
+            }
+            Key::Char('z') =>
+                if self.z_pressed {
+                    self.hex_grid.try_center_scroll();
+                    self.lines.set_scroll(self.hex_grid.get_scroll());
+                    self.ascii_view.set_scroll(self.hex_grid.get_scroll());
+                    self.z_pressed = false;
+                } else {
+                    self.z_pressed = true;
+                },
+            Key::Char('n') => {
+                let hls = &self.highlight;
+                let byte_idx = self.hex_grid.get_byte_idx() as usize;
+                for &hl_offset in hls {
+                    if hl_offset > byte_idx {
+                        self.hex_grid.move_cursor_offset(hl_offset as i32);
+                        return;
+                    }
+                }
+                // We couldn't jump to a match, start from the beginning
+                if let Some(&hl_offset) = hls.get(0) {
+                    self.hex_grid.move_cursor_offset(hl_offset as i32);
+                }
+            }
+            Key::Char('N') => {
+                let hls = &self.highlight;
+                let byte_idx = self.hex_grid.get_byte_idx() as usize;
+                for &hl_offset in hls.iter().rev() {
+                    if hl_offset < byte_idx {
+                        self.hex_grid.move_cursor_offset(hl_offset as i32);
+                        return;
+                    }
+                }
+                // We couldn't jump to a match, start from the beginning
+                if let Some(&hl_offset) = hls.get(hls.len() - 1) {
+                    self.hex_grid.move_cursor_offset(hl_offset as i32);
+                }
+            }
+            _ => {
+                self.hex_grid.keypressed(key);
+            }
         }
     }
 

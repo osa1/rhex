@@ -8,6 +8,7 @@ use colors::Color;
 use utils;
 
 use ncurses as nc;
+use term_input::{Arrow, Key};
 
 pub struct HexGrid<'grid> {
     pos_x: i32,
@@ -134,68 +135,72 @@ impl<'grid> HexGrid<'grid> {
         }
     }
 
-    pub fn keypressed(&mut self, key: i32) -> bool {
-        if key == nc::KEY_UP || key == b'k' as i32 {
-            if self.cursor_y > self.scroll + 2 && self.cursor_y > 0 {
-                self.cursor_y -= 1;
-            } else {
-                if self.scroll > 0 {
-                    self.scroll -= 1;
+    pub fn keypressed(&mut self, key: Key) -> bool {
+        match key {
+            Key::Arrow(Arrow::Up) | Key::Char('k') => {
+                if self.cursor_y > self.scroll + 2 && self.cursor_y > 0 {
                     self.cursor_y -= 1;
-                } else if self.cursor_y - 1 >= 0 {
-                    self.cursor_y -= 1
-                }
-            }
-
-            self.update_ascii_view();
-            self.update_lines();
-            self.update_info_line();
-            true
-        } else if key == nc::KEY_DOWN || key == b'j' as i32 {
-            // TODO: This assumes there's at least one line
-            let max_y = self.total_lines_needed() - 1;
-
-            if self.cursor_y < self.scroll + self.height - 3 && self.cursor_y < max_y {
-                self.move_next_line();
-            } else if self.cursor_y < max_y {
-                // We want to scroll, but is there a text to show? Otherwise we
-                // just move cursor down.
-                if self.scroll + self.height <= max_y {
-                    // We can scroll
-                    self.scroll += 1;
-                    // We move the cursor too, because it's not relative to the
-                    // current scroll
-                    self.cursor_y += 1;
                 } else {
-                    // We can't scroll but there's a line that we can move to
+                    if self.scroll > 0 {
+                        self.scroll -= 1;
+                        self.cursor_y -= 1;
+                    } else if self.cursor_y - 1 >= 0 {
+                        self.cursor_y -= 1
+                    }
+                }
+
+                self.update_ascii_view();
+                self.update_lines();
+                self.update_info_line();
+                true
+            }
+            Key::Arrow(Arrow::Down) | Key::Char('j') => {
+                // TODO: This assumes there's at least one line
+                let max_y = self.total_lines_needed() - 1;
+
+                if self.cursor_y < self.scroll + self.height - 3 && self.cursor_y < max_y {
                     self.move_next_line();
+                } else if self.cursor_y < max_y {
+                    // We want to scroll, but is there a text to show? Otherwise we
+                    // just move cursor down.
+                    if self.scroll + self.height <= max_y {
+                        // We can scroll
+                        self.scroll += 1;
+                        // We move the cursor too, because it's not relative to the
+                        // current scroll
+                        self.cursor_y += 1;
+                    } else {
+                        // We can't scroll but there's a line that we can move to
+                        self.move_next_line();
+                    }
                 }
-            }
 
-            self.update_ascii_view();
-            self.update_lines();
-            self.update_info_line();
-            true
-        } else if key == nc::KEY_LEFT || key == b'h' as i32 {
-            if self.cursor_x > 0 {
-                self.cursor_x -= 1;
-                if (self.cursor_x + 1) % 3 == 0 {
+                self.update_ascii_view();
+                self.update_lines();
+                self.update_info_line();
+                true
+            }
+            Key::Arrow(Arrow::Left) | Key::Char('h') => {
+                if self.cursor_x > 0 {
                     self.cursor_x -= 1;
+                    if (self.cursor_x + 1) % 3 == 0 {
+                        self.cursor_x -= 1;
+                    }
                 }
-            }
 
-            self.update_ascii_view();
-            self.update_lines();
-            self.update_info_line();
-            true
-        } else if key == nc::KEY_RIGHT || key == b'l' as i32 {
-            let next_on_blank =
+                self.update_ascii_view();
+                self.update_lines();
+                self.update_info_line();
+                true
+            }
+            Key::Arrow(Arrow::Right) | Key::Char('l') => {
+                let next_on_blank =
                 // add 1 to move to next column
                 // add 1 to make the index 1-based
                 (self.cursor_x + 1 + 1) % 3 == 0;
 
-            let total_lines = self.total_lines_needed();
-            let last_col_in_line =
+                let total_lines = self.total_lines_needed();
+                let last_col_in_line =
                 // FIXME: This won't work on empty files
                 if self.cursor_y + 1 == total_lines {
                     // We're on the last line
@@ -204,49 +209,51 @@ impl<'grid> HexGrid<'grid> {
                     self.cols_per_line()
                 };
 
-            let potential_next_col = if next_on_blank {
-                self.cursor_x + 2
-            } else {
-                self.cursor_x + 1
-            };
+                let potential_next_col = if next_on_blank {
+                    self.cursor_x + 2
+                } else {
+                    self.cursor_x + 1
+                };
 
-            if potential_next_col <= last_col_in_line {
-                self.cursor_x = potential_next_col;
+                if potential_next_col <= last_col_in_line {
+                    self.cursor_x = potential_next_col;
+                }
+
+                self.update_ascii_view();
+                self.update_lines();
+                self.update_info_line();
+                true
             }
+            Key::Char('G') => {
+                self.move_cursor_offset(self.data.len() as i32 - 1);
+                true
+            }
+            Key::Ctrl('d') => {
+                let current_cursor = self.get_byte_idx();
+                let bytes_per_line = self.bytes_per_line();
 
-            self.update_ascii_view();
-            self.update_lines();
-            self.update_info_line();
-            true
-        } else if key == b'G' as i32 {
-            self.move_cursor_offset(self.data.len() as i32 - 1);
-            true
-        } else if key == 4 {
-            // I don't understand how do modifiers work, but apparently this is C-d
-            let current_cursor = self.get_byte_idx();
-            let bytes_per_line = self.bytes_per_line();
+                let new_cursor = current_cursor + 10 * bytes_per_line;
+                let new_cursor = if new_cursor > (self.data.len() as i32) - 1 {
+                    (self.data.len() as i32) - 1
+                } else {
+                    new_cursor
+                };
 
-            let new_cursor = current_cursor + 10 * bytes_per_line;
-            let new_cursor = if new_cursor > (self.data.len() as i32) - 1 {
-                (self.data.len() as i32) - 1
-            } else {
-                new_cursor
-            };
+                self.move_cursor_offset(new_cursor);
+                true
+            }
+            Key::Ctrl('u') => {
+                let current_cursor = self.get_byte_idx();
+                let bytes_per_line = self.bytes_per_line();
 
-            self.move_cursor_offset(new_cursor);
-            true
-        } else if key == 21 {
-            // C-u
-            let current_cursor = self.get_byte_idx();
-            let bytes_per_line = self.bytes_per_line();
+                let new_cursor = current_cursor - 10 * bytes_per_line;
+                let new_cursor = if new_cursor < 0 { 0 } else { new_cursor };
 
-            let new_cursor = current_cursor - 10 * bytes_per_line;
-            let new_cursor = if new_cursor < 0 { 0 } else { new_cursor };
-
-            self.move_cursor_offset(new_cursor);
-            true
-        } else {
-            false
+                self.move_cursor_offset(new_cursor);
+                true
+            }
+            _ =>
+                false,
         }
     }
 

@@ -5,6 +5,7 @@ use std::cmp;
 use colors::Color;
 
 use ncurses as nc;
+use term_input::Key;
 
 /// Return value of the overlay. Returned by `keypressed()` method.
 pub enum OverlayRet {
@@ -63,41 +64,28 @@ impl GotoOverlay {
         nc::wrefresh(self.win);
     }
 
-    pub fn keypressed(&mut self, ch: i32) -> OverlayRet {
-        if ch >= b'0' as i32 && ch <= b'9' as i32 {
-            self.input.push(char::from_u32(ch as u32).unwrap());
-            OverlayRet::Continue
-        } else if ch == b'g' as i32 {
-            OverlayRet::GotoBeginning
-        } else if ch == 27 {
-            // Is it escape or ALT + something?
-            nc::nodelay(self.win, true);
-            let next_ch = nc::wgetch(self.win);
-            nc::nodelay(self.win, false);
-
-            if next_ch == -1 {
-                // It's escape, abort
-                OverlayRet::Abort
-            } else {
-                // It's ALT + something, but we don't handle that
+    pub fn keypressed(&mut self, key: Key) -> OverlayRet {
+        match key {
+            Key::Char(ch) if (ch >= '0' && ch <= '9') => {
+                self.input.push(char::from_u32(ch as u32).unwrap());
                 OverlayRet::Continue
             }
-        } else if ch == nc::KEY_BACKSPACE || ch == 127 {
-            // backspace
-            self.input.pop();
-            OverlayRet::Continue
-        } else if ch == 10 || ch == b'\n' as i32 {
-            if self.input.len() == 0 {
-                OverlayRet::Abort
-            } else {
-                OverlayRet::Ret(self.input.parse().unwrap())
+            Key::Char('g') =>
+                OverlayRet::GotoBeginning,
+            Key::Esc =>
+                OverlayRet::Abort,
+            Key::Backspace => {
+                self.input.pop();
+                OverlayRet::Continue
             }
-        } else {
-            OverlayRet::Continue
+            Key::Enter =>
+                if self.input.len() == 0 {
+                    OverlayRet::Abort
+                } else {
+                    OverlayRet::Ret(self.input.parse().unwrap())
+                },
+            _ =>
+                OverlayRet::Continue,
         }
-    }
-
-    pub fn get_char(&self) -> i32 {
-        nc::wgetch(self.win)
     }
 }
