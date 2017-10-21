@@ -14,9 +14,6 @@ use self::search::{SearchOverlay, SearchRet};
 
 use gui::GuiRet;
 
-use std::time::Duration;
-use std::time::Instant;
-
 use ncurses as nc;
 use ncurses::constants as nc_cs;
 
@@ -32,18 +29,12 @@ pub struct HexGui<'gui> {
 
     highlight: Vec<usize>,
     highlight_len: usize,
-
-    timed_events: Vec<(Duration, TimedEvent)>,
 }
 
 pub enum Overlay<'overlay> {
     NoOverlay,
     SearchOverlay(SearchOverlay<'overlay>),
     GotoOverlay(GotoOverlay),
-}
-
-enum TimedEvent {
-    RestoreInfoLine,
 }
 
 // WARNING: Moving this after init() will cause a segfault. Not calling init()
@@ -102,8 +93,6 @@ impl<'gui> HexGui<'gui> {
 
             highlight: Vec::new(),
             highlight_len: 0,
-
-            timed_events: Vec::new(),
         }
     }
 
@@ -142,44 +131,9 @@ impl<'gui> HexGui<'gui> {
         }
     }
 
-    fn run_timed_events(&mut self, dt: Duration) {
-        let zero = Duration::new(0, 0);
-
-        // dat syntax tho
-        for &mut (ref mut event_dur, ref mut event) in self.timed_events.iter_mut() {
-            // I don't know what happens when a Duration goes negative. Probably
-            // wraps? Make sure this won't happen.
-            if *event_dur <= dt {
-                *event_dur = zero;
-
-                match *event {
-                    TimedEvent::RestoreInfoLine => {
-                        self.hex_grid.update_info_line();
-                    }
-                }
-            } else {
-                *event_dur = *event_dur - dt;
-            }
-        }
-
-        self.timed_events.retain(|s| s.0 != zero);
-    }
-
     pub fn mainloop(&mut self) -> GuiRet {
-        // Now that 1) we have timed events 2) I don't want to get into
-        // threading, I'm using timeouts here. We check for events with 0.5
-        // seconds granularity.
-        nc::timeout(500);
-
-        let mut now = Instant::now();
-
         loop {
             self.draw();
-
-            let dt = now.elapsed();
-            now = Instant::now();
-
-            self.run_timed_events(dt);
 
             let ch = self.get_char();
 
