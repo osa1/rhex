@@ -25,7 +25,7 @@ pub struct HexGui<'gui> {
     ascii_view: AsciiView<'gui>,
     info_line: InfoLine,
     overlay: Overlay<'gui>,
-    contents: &'gui Vec<u8>,
+    contents: &'gui [u8],
 
     highlight: Vec<usize>,
     highlight_len: usize,
@@ -44,7 +44,7 @@ pub enum Overlay<'overlay> {
 
 impl<'gui> HexGui<'gui> {
     pub fn new(
-        contents: &'gui Vec<u8>,
+        contents: &'gui [u8],
         path: &'gui str,
         width: i32,
         height: i32,
@@ -227,9 +227,11 @@ impl<'gui> HexGui<'gui> {
     fn keypressed_no_overlay(&mut self, key: Key) {
         match key {
             Key::Char('g') => {
+                self.z_pressed = false;
                 self.mk_goto_overlay();
             }
             Key::Char('/') => {
+                self.z_pressed = false;
                 self.mk_search_overlay();
             }
             Key::Char('z') =>
@@ -242,6 +244,7 @@ impl<'gui> HexGui<'gui> {
                     self.z_pressed = true;
                 },
             Key::Char('n') => {
+                self.z_pressed = false;
                 let hls = &self.highlight;
                 let byte_idx = self.hex_grid.get_byte_idx() as usize;
                 for &hl_offset in hls {
@@ -256,6 +259,7 @@ impl<'gui> HexGui<'gui> {
                 }
             }
             Key::Char('N') => {
+                self.z_pressed = false;
                 let hls = &self.highlight;
                 let byte_idx = self.hex_grid.get_byte_idx() as usize;
                 for &hl_offset in hls.iter().rev() {
@@ -270,6 +274,7 @@ impl<'gui> HexGui<'gui> {
                 }
             }
             _ => {
+                self.z_pressed = false;
                 self.hex_grid.keypressed(key);
             }
         }
@@ -294,7 +299,7 @@ impl<'gui> HexGui<'gui> {
             scr_y / 2,
             scr_x / 4,
             scr_y / 4,
-            &self.contents,
+            self.contents,
         ));
     }
 }

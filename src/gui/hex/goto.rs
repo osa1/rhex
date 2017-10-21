@@ -79,7 +79,7 @@ impl GotoOverlay {
                 OverlayRet::Continue
             }
             Key::Enter =>
-                if self.input.len() == 0 {
+                if self.input.is_empty() {
                     OverlayRet::Abort
                 } else {
                     OverlayRet::Ret(self.input.parse().unwrap())

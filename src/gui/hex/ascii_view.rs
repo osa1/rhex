@@ -10,7 +10,7 @@ pub struct AsciiView<'view> {
     width: i32,
     height: i32,
 
-    data: &'view Vec<u8>,
+    data: &'view [u8],
 
     cursor_x: i32,
     cursor_y: i32,
@@ -25,7 +25,7 @@ impl<'view> AsciiView<'view> {
         height: i32,
         pos_x: i32,
         pos_y: i32,
-        data: &'view Vec<u8>,
+        data: &'view [u8],
     ) -> AsciiView<'view> {
         AsciiView {
             width: width,
@@ -44,7 +44,7 @@ impl<'view> AsciiView<'view> {
         self.scroll = scroll;
     }
 
-    pub fn draw(&self, hl: &Vec<usize>, hl_len: usize) {
+    pub fn draw(&self, hl: &[usize], hl_len: usize) {
         let rows = self.height;
         let cols = self.width;
 

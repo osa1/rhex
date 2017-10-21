@@ -101,7 +101,7 @@ impl Lines {
         ret.push('x');
 
         for i in 0..self.width - 2 + 1 {
-            let nibble = ((addr >> (4 * (self.width - 2 - i))) & 0b00001111) as u8;
+            let nibble = ((addr >> (4 * (self.width - 2 - i))) & 0b0000_1111) as u8;
             ret.push(utils::hex_char(nibble) as char);
         }
     }

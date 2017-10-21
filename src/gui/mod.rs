@@ -9,7 +9,7 @@ pub struct Gui<'gui> {
 
 impl<'gui> Gui<'gui> {
     pub fn new_hex_gui(
-        contents: &'gui Vec<u8>,
+        contents: &'gui [u8],
         path: &'gui str,
         width: i32,
         height: i32,

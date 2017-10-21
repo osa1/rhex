@@ -34,7 +34,7 @@ impl<'grid> HexGrid<'grid> {
         height: i32,
         pos_x: i32,
         pos_y: i32,
-        data: &'grid Vec<u8>,
+        data: &'grid [u8],
         path: &'grid str,
     ) -> HexGrid<'grid> {
         HexGrid {
@@ -66,13 +66,11 @@ impl<'grid> HexGrid<'grid> {
         let bytes = self.width / 3;
 
         // Can we fit one more column?
-        let bytes = if self.width % 3 == 2 {
+        if self.width % 3 == 2 {
             bytes + 1
         } else {
             bytes
-        };
-
-        bytes
+        }
     }
 
     /// Effective width of a line (e.g. ignores extra trailing space that we
@@ -140,13 +138,11 @@ impl<'grid> HexGrid<'grid> {
             Key::Arrow(Arrow::Up) | Key::Char('k') => {
                 if self.cursor_y > self.scroll + 2 && self.cursor_y > 0 {
                     self.cursor_y -= 1;
-                } else {
-                    if self.scroll > 0 {
-                        self.scroll -= 1;
-                        self.cursor_y -= 1;
-                    } else if self.cursor_y - 1 >= 0 {
-                        self.cursor_y -= 1
-                    }
+                } else if self.scroll > 0 {
+                    self.scroll -= 1;
+                    self.cursor_y -= 1;
+                } else if self.cursor_y - 1 >= 0 {
+                    self.cursor_y -= 1
                 }
 
                 self.update_ascii_view();
@@ -291,7 +287,7 @@ impl<'grid> HexGrid<'grid> {
         );
     }
 
-    pub fn draw(&self, hl: &Vec<usize>, hl_len: usize) {
+    pub fn draw(&self, hl: &[usize], hl_len: usize) {
         let cols = self.bytes_per_line();
         let rows = self.height;
 
@@ -302,7 +298,7 @@ impl<'grid> HexGrid<'grid> {
                 let byte_idx = (row * cols + col) as usize;
                 if let Some(&byte) = self.data.get(byte_idx) {
                     let char1: u8 = utils::hex_char(byte >> 4);
-                    let char2: u8 = utils::hex_char(byte & 0b00001111);
+                    let char2: u8 = utils::hex_char(byte & 0b0000_1111);
 
                     let attr_1 = col * 3 == self.cursor_x && row == self.cursor_y;
                     let attr_2 = col * 3 + 1 == self.cursor_x && row == self.cursor_y;
