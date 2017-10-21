@@ -13,11 +13,9 @@ impl<'gui> Gui<'gui> {
         path: &'gui str,
         width: i32,
         height: i32,
-        pos_x: i32,
-        pos_y: i32,
     ) -> Gui<'gui> {
         Gui {
-            hex_gui: hex::HexGui::new(contents, path, width, height, pos_x, pos_y),
+            hex_gui: hex::HexGui::new(contents, path, width, height),
         }
     }
 

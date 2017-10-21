@@ -10,8 +10,6 @@ pub struct Lines {
     bytes_per_line: i32,
     length: i32,
 
-    pos_x: i32,
-    pos_y: i32,
     width: i32,
     height: i32,
 
@@ -25,16 +23,12 @@ impl Lines {
     pub fn new(
         bytes_per_line: i32,
         length: i32,
-        pos_x: i32,
-        pos_y: i32,
         width: i32,
         height: i32,
     ) -> Lines {
         Lines {
             bytes_per_line: bytes_per_line,
             length: length,
-            pos_x: pos_x,
-            pos_y: pos_y,
             width: width,
             height: height,
             cursor: 0,
@@ -65,7 +59,7 @@ impl Lines {
                 nc::attron(nc::A_BOLD() | Color::CursorNoFocus.attr());
             }
 
-            nc::mvaddstr(self.pos_y + line, self.pos_x, addr_str.borrow());
+            nc::mvaddstr(line, 0, addr_str.borrow());
 
             if highlight {
                 nc::attroff(nc::A_BOLD() | Color::CursorNoFocus.attr());

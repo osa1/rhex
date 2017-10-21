@@ -48,8 +48,6 @@ impl<'gui> HexGui<'gui> {
         path: &'gui str,
         width: i32,
         height: i32,
-        pos_x: i32,
-        pos_y: i32,
     ) -> HexGui<'gui> {
         // Calculate cols needed for showing the addresses
         let max_address = contents.len();
@@ -69,8 +67,6 @@ impl<'gui> HexGui<'gui> {
         let lines = Lines::new(
             hex_grid.bytes_per_line(),
             contents.len() as i32,
-            pos_x,
-            pos_y,
             addr_len as i32,
             height,
         );

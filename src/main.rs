@@ -49,6 +49,6 @@ fn main() {
     let mut scr_y = 0;
     nc::getmaxyx(nc::stdscr(), &mut scr_y, &mut scr_x);
 
-    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap(), scr_x, scr_y, 0, 0);
+    let mut gui = Gui::new_hex_gui(&contents, path.to_str().unwrap(), scr_x, scr_y);
     gui.mainloop();
 }
