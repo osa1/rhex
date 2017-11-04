@@ -1,7 +1,12 @@
 #![feature(alloc_system)]
+#![feature(allocator_api)]
+#![feature(global_allocator)]
 #![feature(inclusive_range_syntax)]
 
 extern crate alloc_system;
+
+#[global_allocator]
+static ALLOC: alloc_system::System = alloc_system::System;
 
 extern crate libc;
 extern crate nix;
