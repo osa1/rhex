@@ -44,6 +44,41 @@ pub enum Overlay<'overlay> {
     GotoOverlay(GotoOverlay),
 }
 
+struct Layout {
+    lines_width: i32,
+    hex_grid_x: i32,
+    hex_grid_width: i32,
+    ascii_view_x: i32,
+    ascii_view_width: i32,
+}
+
+fn layout(w: i32, content_size: usize) -> Layout {
+    // Calculate cols needed for showing the addresses
+    let hex_digits_needed = (content_size as f32).log(16.0f32) as i32;
+    let lines_width_pre = hex_digits_needed + 2; // take 0x prefix into account
+    let lines_width = if lines_width_pre as f32 > w as f32 / 40.0 * 100.0 {
+        0
+    } else {
+        lines_width_pre
+    };
+
+    // -1 for the vertical line between hex and ascii views
+    // Another -1 for a vertical line between lines and hex view if we draw lines
+    let grid_width = w - lines_width - 1 - if lines_width == 0 { 1 } else { 0 };
+
+    // Every byte takes 3 characters in hex view and 1 character in ascii view.
+    // So we have this 3/1 ratio.
+    let unit_column = grid_width / 4;
+    let hex_grid_width = unit_column * 3;
+    Layout {
+        lines_width,
+        hex_grid_x: lines_width + 1,
+        hex_grid_width,
+        ascii_view_x: lines_width + if lines_width == 0 { 0 } else { 1 } + hex_grid_width,
+        ascii_view_width: unit_column,
+    }
+}
+
 // WARNING: Moving this after init() will cause a segfault. Not calling init()
 // will cause a segfault.
 
@@ -55,37 +90,29 @@ impl<'gui> HexGui<'gui> {
         width: i32,
         height: i32,
     ) -> HexGui<'gui> {
-        // Calculate cols needed for showing the addresses
-        let max_address = contents.len();
-        let hex_digits_needed = (max_address as f32).log(16.0f32) as i32;
-        let addr_len = hex_digits_needed + 2; // take 0x prefix into account
-
-        let grid_width = width - addr_len - 2;
-
-        // Every byte takes 3 characters in hex view and 1 character in ascii view. So we have this
-        // 3/1 ratio.
-
-        let unit_column = grid_width / 4;
-
-        let hex_grid = HexGrid::new(unit_column * 3, height - 1, addr_len + 1, 0, contents, path);
-
+        let layout = layout(width, contents.len());
+        let hex_grid = HexGrid::new(
+            layout.hex_grid_width,
+            height - 1,
+            layout.hex_grid_x,
+            0,
+            contents,
+            path,
+        );
         let lines = Lines::new(
             hex_grid.bytes_per_line(),
             contents.len() as i32,
-            addr_len as i32,
+            layout.lines_width,
             height,
         );
-
         let ascii_view = AsciiView::new(
-            unit_column,
+            layout.ascii_view_width,
             height - 1,
-            unit_column * 3 + 1 + addr_len,
+            layout.ascii_view_x,
             0,
             contents,
         );
-
         let info_line = InfoLine::new(width, 0, height - 1, format!("{} - 0: 0", path));
-
         HexGui {
             tb: tb,
             width: width,
