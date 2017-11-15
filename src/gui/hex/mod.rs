@@ -5,6 +5,7 @@ mod info_line;
 mod lines;
 mod search;
 
+use colors;
 use self::ascii_view::AsciiView;
 use self::goto::{GotoOverlay, OverlayRet};
 use self::hex_grid::HexGrid;
@@ -61,13 +62,12 @@ impl<'gui> HexGui<'gui> {
 
         let grid_width = width - addr_len - 2;
 
-        // Layout: We leave 2 spaces between hex view and ascii view. Every byte
-        // takes 3 characters in hex view and 1 character in ascii view. So we
-        // have this 3/1 ratio.
+        // Every byte takes 3 characters in hex view and 1 character in ascii view. So we have this
+        // 3/1 ratio.
 
         let unit_column = grid_width / 4;
 
-        let hex_grid = HexGrid::new(unit_column * 3, height - 1, addr_len + 2, 0, contents, path);
+        let hex_grid = HexGrid::new(unit_column * 3, height - 1, addr_len + 1, 0, contents, path);
 
         let lines = Lines::new(
             hex_grid.bytes_per_line(),
@@ -79,7 +79,7 @@ impl<'gui> HexGui<'gui> {
         let ascii_view = AsciiView::new(
             unit_column,
             height - 1,
-            unit_column * 3 + 1 + addr_len + 2,
+            unit_column * 3 + 1 + addr_len,
             0,
             contents,
         );
@@ -125,11 +125,26 @@ impl<'gui> HexGui<'gui> {
     pub fn draw(&mut self) {
         self.tb.clear();
 
+        self.lines.draw(&mut self.tb);
+
+        let vsplit_x = self.lines.width();
+        for y in 0..self.height - 1 {
+            self.tb
+                .change_cell(vsplit_x, y, '│', colors::DEFAULT.fg, colors::DEFAULT.bg);
+        }
+
         self.hex_grid
             .draw(&mut self.tb, &self.highlight, self.highlight_len);
-        self.lines.draw(&mut self.tb);
+
+        let vsplit_x = vsplit_x + self.hex_grid.width();
+        for y in 0..self.height - 1 {
+            self.tb
+                .change_cell(vsplit_x, y, '│', colors::DEFAULT.fg, colors::DEFAULT.bg);
+        }
+
         self.ascii_view
             .draw(&mut self.tb, &self.highlight, self.highlight_len);
+
         self.info_line.draw(&mut self.tb);
 
         match self.overlay {

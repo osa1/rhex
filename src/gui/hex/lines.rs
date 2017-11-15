@@ -30,6 +30,10 @@ impl Lines {
         }
     }
 
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+
     pub fn set_scroll(&mut self, scroll: i32) {
         self.scroll = scroll;
     }

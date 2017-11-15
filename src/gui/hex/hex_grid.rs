@@ -52,6 +52,10 @@ impl<'grid> HexGrid<'grid> {
         }
     }
 
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+
     pub fn set_gui(&mut self, gui: *mut HexGui<'grid>) {
         self.gui = gui;
     }
