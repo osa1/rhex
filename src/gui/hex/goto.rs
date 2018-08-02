@@ -88,7 +88,7 @@ impl GotoOverlay {
                 self.input.pop();
                 OverlayRet::Continue
             }
-            Key::Enter =>
+            Key::Char('\r') =>
                 if self.input.is_empty() {
                     OverlayRet::Abort
                 } else {

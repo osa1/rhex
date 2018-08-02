@@ -245,7 +245,7 @@ impl<'overlay> SearchOverlay<'overlay> {
             Key::Esc => {
                 return SearchRet::Abort;
             }
-            Key::Enter => {
+            Key::Char('\r') => {
                 if !self.buffer.is_empty() {
                     // do the search
                     let offsets = self.find_offsets();
